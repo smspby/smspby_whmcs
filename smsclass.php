@@ -1,6 +1,6 @@
 <?php
 include("smspby/vendor/autoload.php");
-class Sms{
+class Sms {
     public $params;
     public $gsmnumber;
     public $message;
@@ -38,40 +38,59 @@ class Sms{
     }
 	
     public function getParams(){
-        $settings	= $this->getSettings();
-        $params 	= json_decode($settings['apiparams'],true);
+        $settings = $this->getSettings();
+        $params = json_decode($settings['apiparams'], true);
 		return $params;
     }
 
-    public function createObject(){
-       $params 	= $this->getParams();
-		$username 	= $params['username'];
-		$apikey 	= $params['apikey'];
-		$senderId 	= $params['senderid'];
-		return (new SMSpby\Lib\Smspby\Smspby()) 
-                       ->setOptions(array('plugin'=>'whmcs','website'=>!empty($_SERVER['SERVER_NAME'])?$_SERVER['SERVER_NAME']:''))		
-					   ->authWithUserIdApiKey($username, $apikey)
-					   ->setForcePrefix('+375')
-					   ->setSender($senderId);
-					 
-					   return array();
+    /**
+     * @return SMSpby\Lib\Smspby\Smspby
+     */
+    public function createObject()
+    {
+        $params = $this->getParams();
+        $username = $params['username'];
+        $apikey = $params['apikey'];
+        $senderId = $params['senderid'];
+
+        $smspby = new SMSpby\Lib\Smspby\Smspby();
+        $smspby->setOptions(array('plugin' => 'whmcs', 'website' => !empty($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : ''))
+            ->authWithUserIdApiKey($username, $apikey)
+            ->setForcePrefix('+375')
+            ->setSender($senderId);
+
+        return $smspby;
     }
 
-    function send(){
-        $text     = $this->message;
-        $to       = $this->getGsmnumber();
-		$smspby = $this->createObject();
-		$result   = $smspby->send($to,$text); 
-		$message_id='';
+    public function getTemplateDetails($template = null){
+        $where  = array("name" => $template);
+        $result = select_query("mod_Smspby_templates", "*", $where);
+        $data   = mysql_fetch_assoc($result);
+        return $data;
+    }
+
+    public function getClientDetailsBy($clientId){
+        $userSql = "SELECT `a`.`id`, `a`.`firstname`, `a`.`lastname`, `a`.`phonenumber` as `gsmnumber`, `a`.`country`
+                    FROM `tblclients` as `a`
+                    WHERE `a`.`id` = '".$clientId."'
+                    LIMIT 1";
+        return mysql_query($userSql);
+    }
+
+    function send() {
+        $text       = $this->message;
+        $to         = $this->getGsmnumber();
+		$smspby     = $this->createObject();
+		$result     = $smspby->send($to,$text); 
+		$message_id = '';
 		if ($result['status']) {
-			$log[] = ("Message sent!");
+            $log[]       = "Message sent!";
 			$message_id  = $result['message_id'];
 		} else {
 			$err_mesg  = is_array($result['error']) ? $result['error']['description'] : $result['error'];
-            $err_code = is_array($result['error']) ? $result['error']['code'] : -100;
-			$log[]     = ("Error code by SMSp.by: {$err_code} Error: {$err_mesg}");
-			$error[]   = ("Error: $err_mesg");
-			
+            $err_code  = is_array($result['error']) ? $result['error']['code'] : -100;
+			$log[]     = "Error code by SMSp.by: {$err_code} Error: {$err_mesg}";
+			$error[]   = "Error: $err_mesg";
 		}
         
         $result =  array(
@@ -79,7 +98,7 @@ class Sms{
             'error' => $error,
 			'phid' 	=> $message_id
         );
-		foreach($result['log'] as $log) {
+		foreach ($result['log'] as $log) {
             $this->addLog($log);
         }
 		if ($result['error']) {
@@ -88,94 +107,61 @@ class Sms{
 				$this->addError($error);
 			}
 
-			$this->saveToDb($result['message_id'],'error',$this->getErrors(),$this->getLogs());
+			$this->saveToDb($result['message_id'], 'error', $this->getErrors(), $this->getLogs());
 			return false;
 		} else {
-			$this->saveToDb($result['message_id'],'',null,$this->getLogs());
+			$this->saveToDb($result['message_id'], '', null, $this->getLogs());
 			return true;
 		}	
     }
 
-    function getotpdetails($userid=null)
+    function sendOtpDetails($userID = null, $resend = false)
 	{	
-	    $this->setUserid( $userid );
-		$client_query = $this->getClientDetailsBy( $this->userid );
-		$client       = mysql_fetch_array( $client_query );
+	    $this->setUserid($userID);
+		$client_query = $this->getClientDetailsBy($this->getUserid());
+		$client = mysql_fetch_array($client_query);
 		
-		$datas        = select_query("mod_Smspby_otp", "*",array('user_id'=>$userid,'phone'=>$client['gsmnumber']));
-		$params 	= $this->getParams();
-		$country_code = $params['country_code'];
-		$no = str_replace('+','',$client['gsmnumber']);
-		$numbers = explode('.',$no);
-		$data         = mysql_fetch_array($datas);
-		if((empty($data) || !$data['verify']) && ($country_code==$numbers[0] || $country_code==''))
-		{
+        $otp_res = select_query("mod_Smspby_otp", "*", array('user_id' => $userID, 'phone' => $client['gsmnumber']));
+		$data = mysql_fetch_array($otp_res);
+        if (empty($data)) {
+            $otp = rand(100000, 999999);
 			$template = $this->getTemplateDetails('ClientAreaRegister_clientarea');
-			$message = str_replace(['{firstname}' , '{lastname}', '{otp}'] , [$client['firstname'], $client['lastname'],'[otp]'] , $template['template']);
-			$this->setGsmnumber( $client['gsmnumber'] );
-			$this->setMessage( $message );
-			if($this->sendotp())
-			{
+			$message = str_replace(['{firstname}' , '{lastname}', '{otp}'] , [$client['firstname'], $client['lastname'], $otp] , $template['template']);
+			$this->setGsmnumber($client['gsmnumber']);
+			$this->setMessage($message);
+            $values = array(
+				'user_id' => $userID,
+				'phone' => $client['gsmnumber'],
+                'otp' => $otp,
+				'verify' => 0
+			);
+			insert_query('mod_Smspby_otp', $values);
+			if ($this->send()) {
 				return true;
 			}
-		}
+        } elseif ($resend) {
+            $otp = $data['otp'];
+            $template = $this->getTemplateDetails('ClientAreaRegister_clientarea');
+			$message = str_replace(['{firstname}' , '{lastname}', '{otp}'] , [$client['firstname'], $client['lastname'], $otp] , $template['template']);
+			$this->setGsmnumber($client['gsmnumber']);
+			$this->setMessage($message);
+			if ($this->send()) {
+				return true;
+			}
+		} elseif (!$data['verify']) {
+            return true;
+        }
 		return false;
 	}
-
-    function sendotp(){
-        $text     = $this->message;
-		$to       = $this->getGsmnumber();
-		$smspby = $this->createObject();
-		$result   = $smspby->generateOtp($to,$text);
-		$message_id='';
-		if ($result['status']) {
-			$log[] = ("Message sent!");
-			$message_id  = $result['message_id'];
-		} else {
-			$err_mesg  = is_array($result['error']) ? $result['error']['description'] : $result['error'];
-            $err_code = is_array($result['error']) ? $result['error']['code'] : -100;
-			$log[]     = ("Error code by SMSp.by: {$err_code} Error: {$err_mesg}");
-			$error[]   = ("Error: $err_mesg");
-			
-		}
-        
-        $result =  array(
-            'log' 	=> $log,
-            'error' => $error,
-			'phid' 	=> $message_id
-        );
-		foreach($result['log'] as $log) {
-            $this->addLog($log);
-        }
-		if ($result['error']) {
-			foreach($result['error'] as $error)
-            {
-				$this->addError($error);
-			}
-
-			$this->saveToDb($result['message_id'],'error',$this->getErrors(),$this->getLogs());
-			return false;
-		} else {
-			$this->saveToDb($result['message_id'],'',null,$this->getLogs());
-			return true;
-		}	
-    }
 	
-	function verifyotp(){
-		$otp      = $this->message;
-        $to       = $this->getGsmnumber();
-		$smspby = $this->createObject();
-		$result   = $smspby->validateOtp($to,$otp);
-		if ($result['status']) {
-			if($result['description']['desc']=='Code Matched successfully.')
-			{
-				return true;
-			}
-			return false;
-		} else {
-			return false;
-		}
-			
+	function verifyotp($userOTP) {
+        $otp_res = select_query("mod_Smspby_otp", "*", array('user_id' => $this->getUserid(), 'phone' => $this->getGsmnumber()));
+        $data = mysql_fetch_array($otp_res);
+        if ($data['otp'] == $userOTP) {
+            update_query('mod_Smspby_otp', array('verify' => 1, 'verify_at' => date("Y-m-d H:i:s")), array('user_id' => $this->getUserid(), 'phone' => $this->getGsmnumber()));
+            return true;
+        }
+        return false;
     }
 
     function getBalance(){
@@ -188,16 +174,16 @@ class Sms{
 		}
     }
 
-    function getReport($phid){
-		if($phid){
-			$smspby = $this->createObject();
-			$result   = $smspby->pullReport($phid);
-			if ($result['status'] == "success"){
-               return $result['description']['report'][0]['status'];
-            }else{
-				 return "error";
+    function getReport($messageID){
+        if ($messageID) {
+            $smspby = $this->createObject();
+            $result = $smspby->pullReport($messageID);
+            if ($result['status']){
+                return $result['message_status']['name'];
+            } else {
+                return "error";
             }
-        }else{
+        } else {
             return null;
         }
     }
@@ -214,9 +200,8 @@ class Sms{
         return $file;
     }
 
-    function saveToDb($phid,$status,$errors = null,$logs = null){
+    function saveToDb($phid, $status, $errors = null, $logs = null){
 		$params = $this->getParams();
-        $now    = date("Y-m-d H:i:s");
         $table  = "mod_Smspby_messages";
         $values = array(
             "sender"   => $params['senderid'],
@@ -227,20 +212,19 @@ class Sms{
             "errors"   => $errors,
             "logs"     => $logs,
             "user"     => $this->getUserid(),
-            "datetime" => $now
         );
         insert_query($table, $values);
     }
 
-    public function addError($error){
+    function addError($error){
         $this->errors[] = $error;
     }
 
-    public function addLog($log){
+    function addLog($log){
         $this->logs[] = $log;
     }
 
-    public function getErrors()
+    function getErrors()
     {
         $res = '<pre><p><ul>';
         foreach($this->errors as $d){
@@ -250,7 +234,7 @@ class Sms{
         return $res;
     }
 
-    public function getLogs()
+    function getLogs()
     {
         $res = '<pre><p><strong>Debug Result</strong><ul>';
         foreach($this->logs as $d){
@@ -294,13 +278,6 @@ class Sms{
         return $i;
     }
 
-    function getTemplateDetails($template = null){
-        $where  = array("name" => $template);
-        $result = select_query("mod_Smspby_templates", "*", $where);
-        $data   = mysql_fetch_assoc($result);
-        return $data;
-    }
-
     function changeDateFormat($date = null){
         $settings   = $this->getSettings();
         $dateformat = $settings['dateformat'];
@@ -313,13 +290,6 @@ class Sms{
         $day        = $date[2];
         $dateformat = str_replace(array("%d","%m","%y"),array($day,$month,$year),$dateformat);
         return $dateformat;
-    }
-
-    function getClientDetailsBy($clientId){
-            $userSql = "SELECT `a`.`id`,`a`.`firstname`, `a`.`lastname`, `a`.`phonenumber` as `gsmnumber`, `a`.`country`
-        FROM `tblclients` as `a` WHERE `a`.`id`  = '".$clientId."'
-        LIMIT 1";
-        return mysql_query($userSql);
     }
 	
     function getClientAndInvoiceDetailsBy($clientId){

@@ -2,44 +2,92 @@
 require_once("smsclass.php");
 use SMSpby\Lib\Smspby\Smspby;
 
-$smspby 	= new Smspby();
+$smspby = new Smspby();
 
- if (!defined("WHMCS"))
-	die("This file cannot be accessed directly");
+if (!defined("WHMCS")) {
+    die("This file cannot be accessed directly");
+}
 
 function smspby_whmcs_config() 
 {
-    $configarray = array(
+    $config = [
 			"name"        => "SMSp.by",
-			"description" => "WHMCS SMS Addon. You can see details from : https://smsp.by/",
-			"version"     => "1.4",
+			"description" => "WHMCS SMS Addon. Больше информации на https://smsp.by/",
+			"version"     => "1.0.0",
 			"author"      => "SMSp.by",
-			"language"    => "english",
-    );
-    return $configarray;
+			"language"    => "russian",
+    ];
+    return $config;
 }
 
 function smspby_whmcs_activate() 
 {
-    $query = "CREATE TABLE IF NOT EXISTS `mod_Smspby_otp` (`id` int(11) NOT NULL AUTO_INCREMENT,`user_id` varchar(11) CHARACTER SET utf8 NOT NULL,`phone` varchar(20) CHARACTER SET utf8 NOT NULL,`verify` tinyint(1) DEFAULT 0,PRIMARY KEY (`id`)) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1;";
-	mysql_query($query);
+    $query = "CREATE TABLE IF NOT EXISTS `mod_Smspby_otp` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `user_id` varchar(11) CHARACTER SET utf8 NOT NULL,
+        `phone` varchar(20) CHARACTER SET utf8 NOT NULL,
+        `otp` varchar(6) CHARACTER SET utf8 NOT NULL,
+        `verify` tinyint(1) DEFAULT 0,
+        `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        `verify_at` timestamp NULL DEFAULT NULL,
+        PRIMARY KEY (`id`)
+    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 AUTO_INCREMENT=1;";
+    mysql_query($query);
 	
-    $query = "CREATE TABLE IF NOT EXISTS `mod_Smspby_messages` (`id` int(11) NOT NULL AUTO_INCREMENT,`sender` varchar(40) NOT NULL,`to` varchar(15) DEFAULT NULL,`text` text,`phid` varchar(50) DEFAULT NULL,`status` varchar(100) DEFAULT NULL,`errors` text,`logs` text,`user` int(11) DEFAULT NULL,`datetime` datetime NOT NULL,PRIMARY KEY (`id`)) ENGINE=MyISAM DEFAULT CHARSET=utf8 AUTO_INCREMENT=1;";
+    $query = "CREATE TABLE IF NOT EXISTS `mod_Smspby_messages` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `sender` varchar(40) NOT NULL,
+        `to` varchar(15) DEFAULT NULL,
+        `text` text,
+        `phid` varchar(50) DEFAULT NULL,
+        `status` varchar(100) DEFAULT NULL,
+        `errors` text,
+        `logs` text,
+        `user` int(11) DEFAULT NULL,
+        `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`)
+    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 AUTO_INCREMENT=1;";
 	mysql_query($query);
 
-    $query = "CREATE TABLE IF NOT EXISTS `mod_Smspby_settings` (`id` int(11) NOT NULL AUTO_INCREMENT,`api` varchar(40) CHARACTER SET utf8 NOT NULL,`apiparams` varchar(500) CHARACTER SET utf8 NOT NULL,`wantsmsfield` int(11) DEFAULT NULL,`gsmnumberfield` int(11) DEFAULT NULL,`resend_time` int(5) DEFAULT NULL,`dateformat` varchar(12) CHARACTER SET utf8 DEFAULT NULL,`version` varchar(6) CHARACTER SET utf8 DEFAULT NULL,PRIMARY KEY (`id`)) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1;";
+    $query = "CREATE TABLE IF NOT EXISTS `mod_Smspby_settings` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `api` varchar(40) CHARACTER SET utf8 NOT NULL,
+        `apiparams` varchar(500) CHARACTER SET utf8 NOT NULL,
+        `wantsmsfield` int(11) DEFAULT NULL,
+        `gsmnumberfield` int(11) DEFAULT NULL,
+        `resend_time` int(5) DEFAULT NULL,
+        `dateformat` varchar(12) CHARACTER SET utf8 DEFAULT NULL,
+        `version` varchar(6) CHARACTER SET utf8 DEFAULT NULL,
+        PRIMARY KEY (`id`)
+    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 AUTO_INCREMENT=1;";
 	mysql_query($query);
 	
-    $query = "INSERT INTO `mod_Smspby_settings` (`api`, `apiparams`, `wantsmsfield`, `gsmnumberfield`, `resend_time`,`dateformat`, `version`) VALUES ('sms', '{\"senderid\":\"\",\"signature\":\"\",\"country_code\":\"\"}', 0, 0, 15,'%d.%m.%y','1.1.3');";
+    $query = "INSERT INTO `mod_Smspby_settings` (`api`, `apiparams`, `wantsmsfield`, `gsmnumberfield`, `resend_time`, `dateformat`, `version`) VALUES (
+        'sms', '{\"senderid\":\"\",\"signature\":\"\",\"country_code\":\"\"}', 0, 0, 15, '%d.%m.%y', '1.0.0'
+    );";
 	mysql_query($query);
 
-    $query = "CREATE TABLE IF NOT EXISTS `mod_Smspby_templates` (`id` int(11) NOT NULL AUTO_INCREMENT,`name` varchar(50) CHARACTER SET utf8 NOT NULL,`type` enum('client','admin') CHARACTER SET utf8 NOT NULL,`admingsm` varchar(255) CHARACTER SET utf8 NOT NULL,`template` varchar(240) CHARACTER SET utf8 NOT NULL,`variables` varchar(500) CHARACTER SET utf8 NOT NULL,`active` tinyint(1) NOT NULL,`extra` varchar(3) CHARACTER SET utf8 NOT NULL,`description` text CHARACTER SET utf8,PRIMARY KEY (`id`)) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1;";
+    $query = "CREATE TABLE IF NOT EXISTS `mod_Smspby_templates` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `name` varchar(50) CHARACTER SET utf8 NOT NULL,
+        `type` enum('client','admin') CHARACTER SET utf8 NOT NULL,
+        `admingsm` varchar(255) CHARACTER SET utf8 NOT NULL,
+        `template` varchar(240) CHARACTER SET utf8 NOT NULL,
+        `variables` varchar(500) CHARACTER SET utf8 NOT NULL,
+        `active` tinyint(1) NOT NULL,
+        `extra` varchar(3) CHARACTER SET utf8 NOT NULL,
+        `description` text CHARACTER SET utf8,
+        PRIMARY KEY (`id`)
+    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 AUTO_INCREMENT=1;";
 	mysql_query($query);
 	
     //Creating hooks
 	$class = new Sms();
     $class->checkHooks();
-    return array('status'=>'success','description'=>'SMSp.by successfully activated :)');
+    return array(
+        'status' => 'success',
+        'description' => 'SMSp.by successfully activated :)'
+    );
 }
 
 function smspby_whmcs_deactivate() 
@@ -53,185 +101,198 @@ function smspby_whmcs_deactivate()
     $query = "DROP TABLE `mod_Smspby_messages`";
     mysql_query($query);
 
-    return array('status'=>'success','description'=>'SMSp.by successfully deactivated :(');
+    return array(
+        'status' => 'success',
+        'description' => 'SMSp.by successfully deactivated :('
+    );
 }
 
 function smspby_whmcs_upgrade($vars) 
 {
-    $version = $vars['version'];
-    switch($version){
-        case "1":
-        case "1.0.1":
-            $sql = "ALTER TABLE `mod_Smspby_messages` ADD `errors` TEXT NULL AFTER `status` ;ALTER TABLE `mod_Smspby_templates` ADD `description` TEXT NULL ;ALTER TABLE `mod_Smspby_messages` ADD `logs` TEXT NULL AFTER `errors` ;";
-            mysql_query($sql);
-        case "1.1":
-            $sql = "ALTER TABLE `mod_Smspby_settings` CHANGE `apiparams` `apiparams` VARCHAR( 500 ) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL ;";
-            mysql_query($sql);
-        case "1.1.1":
-        case "1.1.2":
-            $sql = "ALTER TABLE `mod_Smspby_settings` ADD `dateformat` VARCHAR(12) NULL AFTER `gsmnumberfield`;UPDATE `mod_Smspby_settings` SET dateformat = '%d.%m.%y';";
-            mysql_query($sql);
-        case "1.1.3":
-        case "1.1.4":
-            $sql = "ALTER TABLE `mod_Smspby_templates` CHANGE `name` `name` VARCHAR( 50 ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,CHANGE `type` `type` ENUM( 'client', 'admin' ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,CHANGE `admingsm` `admingsm` VARCHAR( 255 ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,CHANGE `template` `template` VARCHAR( 240 ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,CHANGE `variables` `variables` VARCHAR( 500 ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,CHANGE `extra` `extra` VARCHAR( 3 ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,CHANGE `description` `description` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL ;";
-            mysql_query($sql);
-            $sql = "ALTER TABLE `mod_Smspby_settings` CHANGE `api` `api` VARCHAR( 40 ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,CHANGE `apiparams` `apiparams` VARCHAR( 500 ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,CHANGE `dateformat` `dateformat` VARCHAR( 12 ) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL ,CHANGE `version` `version` VARCHAR( 6 ) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL ;";
-            mysql_query($sql);
-            $sql = "ALTER TABLE `mod_Smspby_messages` CHANGE `sender` `sender` VARCHAR( 40 ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,CHANGE `to` `to` VARCHAR( 15 ) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL ,CHANGE `text` `text` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL ,CHANGE `phid` `phid` VARCHAR( 50 ) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL ,CHANGE `status` `status` VARCHAR( 100 ) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL ,CHANGE `errors` `errors` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL ,CHANGE `logs` `logs` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL ;";
-            mysql_query($sql);
-
-            $sql = "ALTER TABLE `mod_Smspby_templates` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;";
-            mysql_query($sql);
-            $sql = "ALTER TABLE `mod_Smspby_settings` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;";
-            mysql_query($sql);
-            $sql = "ALTER TABLE `mod_Smspby_messages` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;";
-            mysql_query($sql);
-        case "1.1.5":
-        case "1.1.6":
-        case "1.1.7":
-            break;
-
-    }
-
+    // $version = $vars['version'];
     $class = new Sms();
     $class->checkHooks();
 }
 
 function smspby_whmcs_output($vars)
 {
-    $modulelink = $vars['modulelink'];
-	$version    = $vars['version'];
 	$LANG       = $vars['_lang'];
-	putenv("TZ=Asia/Dhaka");
-
+    putenv("TZ=Europe/Minsk");
+    
     $class = new Sms();
 	$tab   = $_GET['tab'];
-    echo '<div id="SMSpby_plugin_container">
-    <style>
-	#count{margin: 0px 5px;}
-	.right{float:right;}
-    .contentarea{
-        background: #f5f5f5 !important;
-    }
-    #clienttabs *{
-    margin: inherit;
-    padding: inherit;
-    border: inherit;
-    color: inherit;
-    background: inherit;
-    background-color: inherit;
-    }
-    #SMSpby_plugin_container textarea{
-        border: 1px solid #cccccc !important;
-        padding: 5px !important;
-    }
-    #SMSpby_plugin_container .internalDiv {
-        text-align: left !important;;
-        background:#fff !important;;
-        margin: 0px !important;;
-        padding: 5px !important;;
-        border: 1px solid #ddd !important;
-    }
-    #SMSpby_plugin_container .button {
-        width: 140px !important;
-        height: 43px !important;
-        color: #666 !important;
-        padding: 10px !important;
-        margin-left: 31% !important;
-        margin-top: 10px !important;
-    }
-    #SMSpby_plugin_container input[type="checkbox"] { border-radius: 0px !important;}
-	@media (max-width: 768px) {
-    #clienttabs ul li {padding:0 7.5px !important;}
-    }
-	@media (min-width: 768px) {
-    .internalDiv.settings {display:flex;}
-	.settings table{width:60%}
-    }
-    #clienttabs{position: relative; z-index: 99;}
-     #clienttabs ul li {
-        display: inline-block;
-        margin-right: 3px;
-        border: 1px solid #ddd;
-        border-bottom:0px;
-        padding: 12px;
-        margin-bottom: -1px;
-     }
-     #clienttabs ul a {
-     border: 0px;;
-     }
-     #clienttabs ul {
-        float:left;
-        margin-bottom:0px;
-     }
-     #clienttabs{
-      float:left;
-     }
-     .tabselected{
-        background-color:#fff !important;
-     }
-     table.form td.fieldarea{
-        background-color:white !important;
-     }
-     table.form td {
-        padding: 3px 15px !important;
-     }
-
-     table.form {
-     padding-top: 20px !important;
-     }
-     .field-icon {
-		margin-left: 400px;
-    margin-top: -22px;
-    position: absolute;
-		}
-	.support{
-		border-radius: 90px;
-		border: 1px solid gray;
-		margin-top: 20px;
-		text-align: center;
-	}
-    </style>
-	<span id="responsemsg"></span>
-    <div id="clienttabs">
-        <ul>
-            <li class="' . (($tab == "settings" || (@$_GET['type'] == "" && $tab == ""))?"tabselected":"tab") . '"><a href="addonmodules.php?module=smspby_whmcs&tab=settings" title="Settings"><span class="hidden-xs">'.$LANG['settings'].'</span><span class="visible-xs"><i class="fa fa-cog"></i></span></a></li>
-            <li class="' . ((@$_GET['type'] == "client")?"tabselected":"tab") . '"><a href="addonmodules.php?module=smspby_whmcs&tab=templates&type=client" title="Client Templates"><span class="hidden-xs">'.$LANG['clientsmstemplates'].'</span><span class="visible-xs"><i class="fa fa-user"></i></span></a></li>
-            <li class="' . ((@$_GET['type'] == "admin")?"tabselected":"tab") . '"><a href="addonmodules.php?module=smspby_whmcs&tab=templates&type=admin" title="Admin Templates"><span class="hidden-xs">'.$LANG['adminsmstemplates'].'</span><span class="visible-xs"><i class="fa fa-user"></i></span></a></li>
-            <li class="' . (($tab == "sendbulk")?"tabselected":"tab") . '"><a href="addonmodules.php?module=smspby_whmcs&tab=sendbulk" title="Send SMS"><span class="hidden-xs">'.$LANG['sendsms'].'</span><span class="visible-xs"><i class="fa fa-envelope"></i></span></a></li>
-            <li class="' . (($tab == "messages")?"tabselected":"tab") . '"><a href="addonmodules.php?module=smspby_whmcs&amp;tab=messages" title="Sent Messages"><span class="hidden-xs">'.$LANG['messages'].'</span><span class="visible-xs"><i class="fa fa-table"></i></span></a></li>
-			<li class="' . (($tab == "advanced_settings")?"tabselected":"tab") . '"><a href="addonmodules.php?module=smspby_whmcs&amp;tab=advanced_settings" title="Advanced Settings"><span class="hidden-xs">'.$LANG['advanced'].'</span><span class="visible-xs"><i class="fa fa-cog"></i></span></a></li>
-        </ul>
+    echo '
+    <div id="SMSpby_plugin_container">
+        <style>
+            #count {
+                margin: 0px 5px;
+            }
+            .right {
+                float: right;
+            }
+            .contentarea {
+                background: #f5f5f5 !important;
+            }
+            #clienttabs * {
+                margin: inherit;
+                padding: inherit;
+                border: inherit;
+                color: inherit;
+                background: inherit;
+                background-color: inherit;
+            }
+            #SMSpby_plugin_container textarea {
+                border: 1px solid #cccccc !important;
+                padding: 5px !important;
+            }
+            #SMSpby_plugin_container .internalDiv {
+                text-align: left !important;
+                background: #fff !important;
+                margin: 0px !important;
+                padding: 5px !important;
+                border: 1px solid #ddd !important;
+            }
+            #SMSpby_plugin_container .button {
+                width: 140px !important;
+                height: 43px !important;
+                color: #666 !important;
+                padding: 10px !important;
+                margin-left: 31% !important;
+                margin-top: 10px !important;
+            }
+            #SMSpby_plugin_container input[type="checkbox"] {
+                border-radius: 0px !important;
+            }
+            @media (max-width: 768px) {
+                #clienttabs ul li {
+                    padding: 0 7.5px !important;
+                }
+            }
+            @media (min-width: 768px) {
+                .internalDiv.settings {
+                    display: flex;
+                }
+                .settings table {
+                    width: 60%;
+                }
+            }
+            #clienttabs {
+                position: relative;
+                z-index: 99;
+            }
+            #clienttabs ul li {
+                display: inline-block;
+                margin-right: 3px;
+                border: 1px solid #ddd;
+                border-bottom: 0px;
+                padding: 12px;
+                margin-bottom: -1px;
+            }
+            #clienttabs ul a {
+                border: 0px;
+            }
+            #clienttabs ul {
+                float: left;
+                margin-bottom: 0px;
+            }
+            #clienttabs {
+                float: left;
+            }
+            .tabselected {
+                background-color: #fff !important;
+            }
+            table.form td.fieldarea {
+                background-color: white !important;
+            }
+            table.form td {
+                padding: 3px 15px !important;
+            }
+            table.form {
+                padding-top: 20px !important;
+            }
+            .field-icon {
+                margin-left: 400px;
+                margin-top: -22px;
+                position: absolute;
+            }
+            .support {
+                border-radius: 90px;
+                border: 1px solid gray;
+                margin-top: 20px;
+                text-align: center;
+            }
+        </style>
+        <span id="responsemsg"></span>
+        <div id="clienttabs">
+            <ul>
+                <li class="' . (($tab == "settings" || (@$_GET['type'] == "" && $tab == "")) ? "tabselected" : "tab") .'">
+                    <a href="addonmodules.php?module=smspby_whmcs&tab=settings" title="' . $LANG['settings'] . '">
+                        <span class="hidden-xs">' . $LANG['settings'] . '</span>
+                        <span class="visible-xs"><i class="fa fa-cog"></i></span>
+                    </a>
+                </li>
+                <li class="' . ((@$_GET['type'] == "client") ? "tabselected" : "tab") .'">
+                    <a href="addonmodules.php?module=smspby_whmcs&tab=templates&type=client" title="' . $LANG['clientsmstemplates'] .'">
+                        <span class="hidden-xs">' . $LANG['clientsmstemplates'] .'</span>
+                        <span class="visible-xs"><i class="fa fa-user"></i></span>
+                    </a>
+                </li>
+                <li class="' . ((@$_GET['type'] == "admin") ? "tabselected" : "tab") .'">
+                    <a href="addonmodules.php?module=smspby_whmcs&tab=templates&type=admin" title="' . $LANG['adminsmstemplates'] .'">
+                        <span class="hidden-xs">' . $LANG['adminsmstemplates'] .'</span>
+                        <span class="visible-xs"><i class="fa fa-user"></i></span>
+                    </a>
+                </li>
+                <li class="' . (($tab == "sendbulk") ? "tabselected" : "tab") .'">
+                    <a href="addonmodules.php?module=smspby_whmcs&tab=sendbulk" title="' . $LANG['sendsms'] .'">
+                        <span class="hidden-xs">' . $LANG['sendsms'] .'</span>
+                        <span class="visible-xs"><i class="fa fa-envelope"></i></span>
+                    </a>
+                </li>
+                <li class="' . (($tab == "messages") ? "tabselected" : "tab") .'">
+                    <a href="addonmodules.php?module=smspby_whmcs&amp;tab=messages" title="' . $LANG['messages'] .'">
+                        <span class="hidden-xs">' . $LANG['messages'] .'</span>
+                        <span class="visible-xs"><i class="fa fa-table"></i></span>
+                    </a>
+                </li>
+                <li class="' . (($tab == "advanced_settings") ? "tabselected" : "tab") .'">
+                    <a href="addonmodules.php?module=smspby_whmcs&amp;tab=advanced_settings" title="' . $LANG['advanced'] .'">
+                        <span class="hidden-xs">' . $LANG['advanced'] .'</span>
+                        <span class="visible-xs"><i class="fa fa-cog"></i></span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+        <div style="clear:both;"></div>
     </div>
-    <div style="clear:both;"></div>
     ';
-    if (!isset($tab) || $tab == "settings")
-    {
+
+    if (!isset($tab) || $tab == "settings") {
         /* UPDATE SETTINGS */
         if ($_POST['params']) {
-			$update = array(
+			$update = [
                 "api"            => $_POST['api'],
                 "apiparams"      => htmlspecialchars_decode(json_encode($_POST['params'])),
-                'wantsmsfield'   => $_POST['wantsmsfield'],
-                'gsmnumberfield' => $_POST['gsmnumberfield'],
-                'dateformat'     => $settings['dateformat']
-            );
+                'wantsmsfield'    => $_POST['wantsmsfield'],
+                'gsmnumberfield'  => $_POST['gsmnumberfield'],
+                'dateformat'     => $_POST['dateformat']
+            ];
             update_query("mod_Smspby_settings", $update, "");
         }
         /* UPDATE SETTINGS */
 
 		if ($_POST['logout']) {
-             $query = "TRUNCATE TABLE `mod_Smspby_settings`";
-	         mysql_query($query);
-			 $query = "INSERT INTO `mod_Smspby_settings` (`api`, `apiparams`, `wantsmsfield`, `gsmnumberfield`, `resend_time`,`dateformat`, `version`) VALUES ('sms', '{\"senderid\":\"\",\"signature\":\"\",\"country_code\":\"\"}', 0, 0, 15,'%d.%m.%y','1.1.3');";
-	         mysql_query($query);
+            $query = "TRUNCATE TABLE `mod_Smspby_settings`";
+	        mysql_query($query);
+            $query = "INSERT INTO `mod_Smspby_settings` (`api`, `apiparams`, `wantsmsfield`, `gsmnumberfield`, `resend_time`, `dateformat`, `version`) VALUES ('sms', '{\"senderid\":\"\",\"signature\":\"\",\"country_code\":\"\"}', 0, 0, 15, '%d.%m.%y', '1.1.3')";
+	        mysql_query($query);
         }
 		$getAdminUsername = full_query("SELECT `username`,`firstname`,`lastname`,`email` FROM `tbladmins` WHERE `id`='{$_SESSION['adminid']}'");
         $getAdminUsername = mysql_fetch_assoc($getAdminUsername);
 
         $apiparams  = $class->getParams();
 		$disabled   = '';
-		$smspby 	= new Smspby();
+		$smspby = new Smspby();
         if ($apiparams['pattern'] == '') {
             $apiparams['pattern'] = '+375';
         }
@@ -294,9 +355,7 @@ function smspby_whmcs_output($vars)
 		        </div>
 		    </div>';
 		
-    }
-    elseif ($tab == "templates")
-    {
+    } elseif ($tab == "templates") {
         if ($_POST['submit']) {
             $where = array("type" => array("sqltype" => "LIKE", "value" => $_GET['type']));
             $result = select_query("mod_Smspby_templates", "*", $where);
@@ -381,7 +440,7 @@ function smspby_whmcs_output($vars)
                 <tr>
                     <td class="fieldlabel" width="30%">'.$LANG['admingsm'].'</td>
                     <td class="fieldarea">
-                        <input type="text" class="extraField form-control" name="'.$data['id'].'_admingsm" placeholder="e.g. 91810XXX,9191XXXXX" value="'.$data['admingsm'].'">
+                        <input type="text" class="extraField form-control" name="'.$data['id'].'_admingsm" placeholder="e.g. 37525XXX,37529XXXXX" value="'.$data['admingsm'].'">
                     </td>
                 </tr>
                 ';
@@ -393,13 +452,11 @@ function smspby_whmcs_output($vars)
         echo '
         </tbody>
                 </table>
-            <p style="text-align:center"><input type="submit" name="submit" class="btn btn-primary save_btn" value="Save Changes"></p>
+            <p style="text-align:center"><input type="submit" name="submit" class="btn btn-primary save_btn" value="'.$LANG['save'].'"></p>
             </div>
         </form>';
 
-    }
-    elseif ($tab == "messages")
-    {
+    } elseif ($tab == "messages") {
         if(!empty($_GET['deletesms'])){
             $smsid = (int) $_GET['deletesms'];
             $sql   = "DELETE FROM mod_Smspby_messages WHERE id = '$smsid'";
@@ -435,18 +492,17 @@ function smspby_whmcs_output($vars)
         $i = 0;
 
         //Getting total records
-        $total  = "SELECT count(id) as toplam FROM `mod_Smspby_messages`";
-        $sonuc  = mysql_query($total);
+        $sonuc  = mysql_query("SELECT count(id) as toplam FROM `mod_Smspby_messages`");
         $sonuc  = mysql_fetch_array($sonuc);
         $toplam = $sonuc['toplam'];
 
         //Page calculation
         $sayfa  = ceil($toplam/$limit);
         while ($data = mysql_fetch_array($result)) {
-            if($data['phid']){
+            if ($data['phid']) {
                 $status = $class->getReport($data['phid']);
-                mysql_query("UPDATE mod_Smspby_messages SET status = '$status' WHERE id = ".$data['id']);
-            }else{
+                mysql_query("UPDATE mod_Smspby_messages SET status = '{$status}' WHERE id = " . $data['id']);
+            } else {
                 $status = $data['status'];
             }
 
@@ -456,9 +512,9 @@ function smspby_whmcs_output($vars)
             <td><a href="clientssummary.php?userid='.$data['user'].'">'.$data['firstname'].' '.$data['lastname'].'</a></td>
             <td>'.$data['to'].'</td>
             <td>'.$data['text'].'</td>
-            <td>'.$data['datetime'].'</td>
+            <td>'.date('Y-m-d H:i:s', $data['created_at']).'</td>
             <td>'.$status.'</td>
-            <td><a href="addonmodules.php?module=smspby_whmcs&tab=messages&deletesms='.$data['id'].'" title="'.$LANG['delete'].'"><img src="images/delete.gif" width="16" height="16" border="0" alt="Delete"></a></td></tr>';
+            <td><a href="addonmodules.php?module=smspby_whmcs&tab=messages&deletesms='.$data['id'].'" title="'.$LANG['delete'].'"><img src="images/delete.gif" width="16" height="16" border="0" alt="'.$LANG['delete'].'"></a></td></tr>';
         }
         echo '</tbody></table>';  
         $list="";
@@ -469,9 +525,7 @@ function smspby_whmcs_output($vars)
         }
         echo "<select  onchange=\"this.options[this.selectedIndex].value && (window.location = this.options[this.selectedIndex].value);\">{$list}</select></div>";
 
-    }
-    elseif($tab=="sendbulk")
-    {
+    } elseif($tab=="sendbulk") {
         $apiparams = $class->getParams();
         if(!empty($_POST['client'])){
             $userinf     = explode("_",$_POST['client']);
@@ -561,7 +615,7 @@ function smspby_whmcs_output($vars)
                             </td>
                         </tr>
                         <tr>
-                            <td class="fieldlabel" width="30%">Parameters :</td>
+                            <td class="fieldlabel" width="30%">'.$LANG['parameter'].'</td>
                             <td class="fieldarea">
                                 {firstname},{lastname}<br>
 								
@@ -578,9 +632,7 @@ function smspby_whmcs_output($vars)
         </form>';
 
 
-    }
-	elseif ($tab == "advanced_settings")
-    {
+    } elseif ($tab == "advanced_settings") {
         if ($_POST['submit']) {
             $update = array(
                 'resend_time' => $_POST['resend_timer']
@@ -605,7 +657,7 @@ function smspby_whmcs_output($vars)
         echo '
         </tbody>
                 </table>
-            <p style="text-align:center"><input type="submit" name="submit" class="btn btn-primary save_btn" value="Save Changes"></p>
+            <p style="text-align:center"><input type="submit" name="submit" class="btn btn-primary save_btn" value="'.$LANG['save'].'"></p>
             </div>
         </form>';
 
@@ -623,67 +675,67 @@ function smspby_whmcs_output($vars)
 <script>
 function saveLoginForm()
 { 
-	$('#smspbyform').submit();
-	return true;
+    $('#smspbyform').submit();
+    return true;
 }
+
 function togglecheckbox(obj)
 {
     var id = parseInt($(obj).attr('name').split('_')[0], 10);
     
     if($(obj).is(':checked'))
     {
-            $("#"+id+"_check").prop("readonly", false);
+        $("#" + id + "_check").prop("readonly", false);
     }
     else
     {
-            $("#"+id+"_check").prop("readonly", true);
+        $("#" + id + "_check").prop("readonly", true);
     }
 }
-	
-function insertToken(obj){
-		var dataToken= $(obj).attr('data-token');
-		var id = parseInt($(obj).parent('td').attr('class').split('_')[0], 10);
-			insertAtCaret(dataToken,id);
-		
+
+function insertToken(obj)
+{
+    var dataToken = $(obj).attr('data-token');
+    var id = parseInt($(obj).parent('td').attr('class').split('_')[0], 10);
+    insertAtCaret(dataToken, id);
 }
 
-function insertAtCaret(textFeildValue,id) 
-   {
-		var textObj = document.getElementById(""+id+"_check");
-		if (document.all) {
-			if (textObj.createTextRange && textObj.caretPos) {
-				var caretPos  = textObj.caretPos;
-				caretPos.text = caretPos.text.charAt(caretPos.text.length - 1) == ' ' ? textFeildValue + ' ' : textFeildValue;
-			}
-			else {
-				textObj.value = textObj.value + textFeildValue;
-			}
-		}
-		else {
-			if (textObj.setSelectionRange) {
-				var rangeStart = textObj.selectionStart;
-				var rangeEnd   = textObj.selectionEnd;
-				var tempStr1   = textObj.value.substring(0, rangeStart);
-				var tempStr2   = textObj.value.substring(rangeEnd);
-	
-				textObj.value  = tempStr1 + textFeildValue + tempStr2;
-			}
-			else {
-				alert("This version of Mozilla based browser does not support setSelectionRange");
-			}
-		}
-	}
-	$(".toggle-password").click(function() {
+function insertAtCaret(textFeildValue, id) 
+{
+    var textObj = document.getElementById("" + id + "_check");
+    if (document.all) {
+        if (textObj.createTextRange && textObj.caretPos) {
+            var caretPos = textObj.caretPos;
+            caretPos.text = caretPos.text.charAt(caretPos.text.length - 1) == ' ' ? textFeildValue + ' ' : textFeildValue;
+        }
+        else {
+            textObj.value = textObj.value + textFeildValue;
+        }
+    }
+    else {
+        if (textObj.setSelectionRange) {
+            var rangeStart = textObj.selectionStart;
+            var rangeEnd = textObj.selectionEnd;
+            var tempStr1 = textObj.value.substring(0, rangeStart);
+            var tempStr2 = textObj.value.substring(rangeEnd);
 
-  $(this).toggleClass("fa-eye fa-eye-slash");
-  var input = $($(this).attr("toggle"));
-  if (input.attr("type") == "password") {
-    input.attr("type", "text");
-  } else {
-    input.attr("type", "password");
-  }
+            textObj.value = tempStr1 + textFeildValue + tempStr2;
+        }
+        else {
+            alert("This version of Mozilla based browser does not support setSelectionRange");
+        }
+    }
+}
+
+$(".toggle-password").click(function() {
+    $(this).toggleClass("fa-eye fa-eye-slash");
+    var input = $($(this).attr("toggle"));
+    if (input.attr("type") == "password") {
+        input.attr("type", "text");
+    } else {
+        input.attr("type", "password");
+    }
 });
 </script>
 <?php
 }
-?>
