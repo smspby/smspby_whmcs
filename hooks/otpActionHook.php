@@ -12,7 +12,10 @@ if (isset($_POST['action'])) {
 	$class->setUserid($userID);
 	switch ($action) {
 		case 'resendOtp':
-			$class->sendOtpDetails($userID, true);
+			$res = $class->sendOtpDetails($userID, true);
+			if (!$res['status']) {
+				echo json_encode(['code' => 0, 'message' => 'Error while sending OTP: ' . $res['error'], 'data' => []]);
+			}
 			exit;
 		case 'otpVerification':
 			$userOTP = $_POST['otp'];
@@ -27,7 +30,7 @@ if (isset($_POST['action'])) {
 	}
 }
 
-//Action Hooks.
+// Action Hooks.
 add_hook('AdminAreaClientSummaryPage', 1, function($vars) {
 	$class   = new Sms();
 	$userID = $vars['userid'];
@@ -40,7 +43,7 @@ add_hook('AdminAreaClientSummaryPage', 1, function($vars) {
 		if ($data && $data['verify']) {
 			return '<div class="clientsummaryactions">Phone Verified: <span id="taxstatus" class="csajaxtoggle"><strong class="textgreen">Yes</strong></span></div>';
 		} else {
-			return '<div class="clientsummaryactions">Phone Verified: <span id="taxstatus" class="csajaxtoggle"><strong class="textred">No</strong></span> <a href="javascript::void(0)" id="resend-otp" style="pointer-events: auto; cursor: pointer; opacity: 1; float: right;"> Resend</a></div>';						
+			return '<div class="clientsummaryactions">Phone Verified: <span id="taxstatus" class="csajaxtoggle"><strong class="textred">No</strong></span></div>';						
 		}
 	}
 });  
@@ -53,58 +56,92 @@ add_hook('ClientAreaHeadOutput', 1, function($vars) {
 	';
 });
 
+// Блок на сранице клиента, если номер не подтвержден.
+add_hook('ClientAreaPage', 1, function($vars) {
+	if (isset($vars['client'])) {
+		$res = select_query("mod_Smspby_otp", "*", array('user_id' => $vars['client']->id, 'phone' => $vars['client']->phonenumber));
+		$data = mysql_fetch_array($res);
+
+		$output['phoneverifycheck'] = isset($data['verify']) ? $data['verify'] : 0;
+		$output['phoneverifylink'] = '<a href="javascript::void(0)" id="showOtp" style="pointer-events: auto; cursor: pointer; opacity: 1; float: center; color: white; text-decoration: none; display: block;">Выслать код подтверждения</a>';
+		
+		return $output;	
+	} 
+});
+
 add_hook('ClientAreaHeaderOutput', 1, function($vars) {
-	if(isset($vars['client'])) {
+	if(isset($vars['client'])) {	
+		$class   = new Sms();
+		$config = $class->getSettings();	
 		$return = '';
 		$res = select_query("mod_Smspby_otp", "*", array('user_id' => $vars['client']->id, 'phone' => $vars['client']->phonenumber));
 		$data = mysql_fetch_array($res);
 		$base = basename($_SERVER['REQUEST_URI']);
 		$filename = explode("?", $base);
+		if (empty($data)) {
+			$otpInput = '<p class="text-center" style="font-size:23px;">Код активации для ' . $vars['client']->phonenumber . '</p>';
+			$button = '<a class="btn btn-success btn-sm btn-block" href="javascript::void(0)" name="resend-otp" style="pointer-events: auto; cursor: pointer; opacity: 1; float: right; font-size:18px;"> Отправить код на телефон</a>';
+			$showOneMore = ' style="display: none;"';
+		} elseif ($data['resend_count'] >= ($config['sms_count_limit'] - 1) && $config['sms_count_limit'] > 0) {
+			$otpInput = '
+			<p class="text-center" style="font-size:23px;">Код активации для ' . $vars['client']->phonenumber . '</p>
+			<div class="form-group col-lg-8 col-xs-12">
+				<input type="text" name="otp" class="form-control" id="otp" placeholder="Введите код">
+				<p class="text-center" style="font-size: 12px; color: red;">Вы превысили лимит отправки кода. Свяжитесь с технической поддержкой.</p>
+			</div>';
+			$button = '<button type="submit" class="btn btn-primary">Проверить код</button>';
+			$showOneMore = ' style="display: none;"';
+		} elseif (!$data['verify']) {
+			$otpInput = '
+			<p class="text-center" style="font-size:23px;">Код активации для ' . $vars['client']->phonenumber . '</p>
+			<div class="form-group col-lg-8 col-xs-12">
+				<input type="text" name="otp" class="form-control" id="otp" placeholder="Введите код">
+			</div>';
+			$button = '<button type="submit" class="btn btn-primary">Проверить код</button>';
+			$showOneMore = '';
+		}
 		if(empty($data) || !$data['verify']) {
-			$class = new Sms();
 			if($filename[0] != 'cart.php' && $base != 'clientarea.php?action=details') {
-				if($class->sendOtpDetails($vars['client']->id)) {
-					$return = '
-					<!-- Trigger the modal with a button -->
-					<!-- Modal -->
-					<form method="post" class="using-password-strength" action="" onSubmit="return checkOtpForm(this);" role="form" name="otpVerification" id="frmOtpVerification">
-						<input type="hidden" name="action" value="otpVerification">
-						<input type="hidden" name="user_id" value="' . $vars['client']->id . '">
-						<input type="hidden" name="user_phone" value="' . $vars['client']->phonenumber . '">
-						<div id="hook-modal" class="modal fade" role="dialog">
-							<div class="modal-dialog">
-								<!-- Modal content-->
-								<div class="modal-content">
-									<div class="modal-header">
-										<h4 class="modal-title">Mobile Verification</h4>
+				$return = '
+				<!-- Trigger the modal with a button -->
+				<!-- Modal -->
+				<form method="post" class="using-password-strength" action="" onSubmit="return checkOtpForm(this);" role="form" name="otpVerification" id="frmOtpVerification">
+					<input type="hidden" name="action" value="otpVerification">
+					<input type="hidden" name="user_id" value="' . $vars['client']->id . '">
+					<input type="hidden" name="user_phone" value="' . $vars['client']->phonenumber . '">
+					<div id="hook-modal" class="modal fade" role="dialog" style="display: none;">
+						<div class="modal-dialog">
+							<!-- Modal content-->
+							<div class="modal-content">
+								<div class="modal-header">
+									<h4 class="modal-title">Активация номера</h4>
+								</div>
+								<div class="modal-body col-lg-12">
+									' . $otpInput . '
+									<div class="form-group col-lg-12 col-xs-12">
+										' . $button . '
 									</div>
-									<div class="modal-body col-lg-12">
-										<p>OTP sent to Phone number ' . $vars['client']->phonenumber . '</p>
-										<div class="form-group col-lg-8 col-xs-12">
-											<input type="text" name="otp" class="form-control" id="otp" placeholder="Enter OTP">
-										</div>
-										<div class="form-group col-lg-4 col-xs-12">
-											<button type="submit" class="btn btn-primary">Validate OTP</button>
-										</div>
-									</div>
-									<div class="modal-footer">
-										<hr/>
-										<p class="text-center margin-10">
-											<a href="javascript::void(0)" id="logout" style="pointer-events: auto; cursor: pointer; opacity: 1; float: left;">Not Your Number?</a>
-										</p>
-										<p class="text-center margin-10">
-											<a href="javascript::void(0)" id="resend-otp" style="pointer-events: auto; cursor: pointer; opacity: 1; float: right;">Resend</a>
-											<span id="timer" style="min-width: 80px; float: right; display: none;">00:00:00 sec</span>
-										</p>
-									</div>
+								</div>
+								<div class="modal-footer">
+									<hr/>
+									<p class="text-center margin-10">
+										<a href="javascript::void(0)" id="logout" style="pointer-events: auto; cursor: pointer; opacity: 1; float: left;">Изменить номер</a>
+									</p>
+									<p class="text-center margin-10"'.$showOneMore.'>
+										<a href="javascript::void(0)" id="resend-otp-one-more" name="resend-otp" style="pointer-events: auto; cursor: pointer; opacity: 1; float: right;">Отправить еще раз</a>
+										<span id="timer" style="min-width: 80px; float: right; display: none;">00:00:00 sec</span>
+									</p>
+									<p class="text-right margin-10">
+										<a href="javascript::void(0)" id="closeOtp" style="pointer-events: auto; cursor: pointer; opacity: 1; float: right;">Закрыть</a>
+									</p>
 								</div>
 							</div>
 						</div>
-					</form>';
-				}
+					</div>
+				</form>';
 			}
 		}
-		return $return;
+		return $return;		
 	}
 });
 
@@ -124,8 +161,11 @@ add_hook('ClientAreaFooterOutput', 1, function($vars) {
 				$return = '
 				<script type="text/javascript">
 					$(window).on(\'load\', function() {
-						$(\'#hook-modal\').modal({ backdrop: \'static\', keyboard: false });
-						timerCount();
+						if (document.cookie.indexOf("otpHide") === -1 || document.cookie.replace(/(?:(?:^|.*;\s*)otpHide\s*\=\s*([^;]*).*$)|^.*$/, "$1") == 0) {
+							$(\'#hook-modal\').modal(\'show\');
+							$(\'#hook-modal\').modal({ backdrop: \'static\', keyboard: false });
+							timerCount();
+						}
 					});
 
 					function timerCount() {
@@ -150,15 +190,15 @@ add_hook('ClientAreaFooterOutput', 1, function($vars) {
 								counterRunning = false;
 								document.getElementById("timer").style.display = "none";
 								var cssString = "pointer-events: auto; cursor: pointer; opacity: 1; float:right";
-								document.getElementById("resend-otp").style.cssText = cssString;
+								document.getElementById("resend-otp-one-more").style.cssText = cssString;
 								clearInterval(interval);
 							} else {
-								document.getElementById("resend-otp").style.cssText = "pointer-events: none; cursor: default; opacity: 1; float:right";
+								document.getElementById("resend-otp-one-more").style.cssText = "pointer-events: none; cursor: default; opacity: 1; float:right";
 							}
 						}, 1000);
 					}
 
-					$("#resend-otp").click(function(e) {
+					$("a[name=resend-otp]").click(function(e) {
 						timerCount();
 						$.ajax({
 							url: \'clientarea.php\',
@@ -186,15 +226,27 @@ add_hook('ClientAreaFooterOutput', 1, function($vars) {
 								} else {
 									bootbox.alert(data.message);
 								}
+   								location.reload();
 							},
 							error: function(data) {
 								console.log(\'Error:\', data);
+								location.reload();
 							}
 						});
 					});
 
 					$("#logout").click(function(e) {
 						window.location = "clientarea.php?action=details";
+					});
+
+					$("#closeOtp").click(function(e) {
+						$(\'#hook-modal\').modal(\'hide\');
+						document.cookie = "otpHide=1";
+					});
+
+					$("#showOtp").click(function(e) {
+						$(\'#hook-modal\').modal(\'show\');
+						document.cookie = "otpHide=0";
 					});
 
 					function checkOtpForm(elements) {

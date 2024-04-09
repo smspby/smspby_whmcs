@@ -33,7 +33,7 @@ class Sms {
     }
 	
     public function getSettings(){
-        $result = select_query("mod_Smspby_settings", "*",array('id'=>1));
+        $result = select_query("mod_Smspby_settings", "*", ['id' => 1]);
         return mysql_fetch_array($result);
     }
 	
@@ -81,38 +81,27 @@ class Sms {
         $text       = $this->message;
         $to         = $this->getGsmnumber();
 		$smspby     = $this->createObject();
-		$result     = $smspby->send($to,$text); 
+		$smspRes     = $smspby->send($to, $text);
 		$message_id = '';
-		if ($result['status']) {
-            $log[]       = "Message sent!";
-			$message_id  = $result['message_id'];
+		if ($smspRes['status']) {
+            $log       = "Message sent!";
+			$message_id  = $smspRes['message_id'];
 		} else {
-			$err_mesg  = is_array($result['error']) ? $result['error']['description'] : $result['error'];
-            $err_code  = is_array($result['error']) ? $result['error']['code'] : -100;
-			$log[]     = "Error code by SMSp.by: {$err_code} Error: {$err_mesg}";
-			$error[]   = "Error: $err_mesg";
+			$err_mesg  = is_array($smspRes['error']) ? $smspRes['error']['description'] : $smspRes['error'];
+            $err_code  = is_array($smspRes['error']) ? $smspRes['error']['code'] : -100;
+			$log     = "Error code by SMSp.by: {$err_code} Error: {$err_mesg}";
+			$error   = "Error: $err_mesg";
 		}
         
-        $result =  array(
-            'log' 	=> $log,
-            'error' => $error,
-			'phid' 	=> $message_id
-        );
-		foreach ($result['log'] as $log) {
-            $this->addLog($log);
-        }
-		if ($result['error']) {
-			foreach($result['error'] as $error)
-            {
-				$this->addError($error);
-			}
-
-			$this->saveToDb($result['message_id'], 'error', $this->getErrors(), $this->getLogs());
+        $this->addLog($log);
+		if (isset($error)) {
+            $this->addError($error);
+			$this->saveToDb($message_id, 'error', $this->getErrors(), $this->getLogs());
 			return false;
 		} else {
-			$this->saveToDb($result['message_id'], '', null, $this->getLogs());
+			$this->saveToDb($message_id, '', null, $this->getLogs());
 			return true;
-		}	
+        }
     }
 
     function sendOtpDetails($userID = null, $resend = false)
@@ -121,9 +110,9 @@ class Sms {
 		$client_query = $this->getClientDetailsBy($this->getUserid());
 		$client = mysql_fetch_array($client_query);
 		
-        $otp_res = select_query("mod_Smspby_otp", "*", array('user_id' => $userID, 'phone' => $client['gsmnumber']));
-		$data = mysql_fetch_array($otp_res);
-        if (empty($data)) {
+        $otp_res = select_query("mod_Smspby_otp", "*", ['user_id' => $userID, 'phone' => $client['gsmnumber']]);
+		$otpData = mysql_fetch_array($otp_res);
+        if (empty($otpData)) {
             $otp = rand(100000, 999999);
 			$template = $this->getTemplateDetails('ClientAreaRegister_clientarea');
 			$message = str_replace(['{firstname}' , '{lastname}', '{otp}'] , [$client['firstname'], $client['lastname'], $otp] , $template['template']);
@@ -137,28 +126,40 @@ class Sms {
 			);
 			insert_query('mod_Smspby_otp', $values);
 			if ($this->send()) {
-				return true;
+				return ['status' => true];
 			}
         } elseif ($resend) {
-            $otp = $data['otp'];
+            $config = $this->getSettings();
+            if ($otpData['resend_count'] >= ($config['sms_count_limit'] - 1) && $config['sms_count_limit'] > 0) {
+                return ['status' => false, 'error' => 'limit_exceeded'];
+            }
+            $otp = $otpData['otp'];
             $template = $this->getTemplateDetails('ClientAreaRegister_clientarea');
 			$message = str_replace(['{firstname}' , '{lastname}', '{otp}'] , [$client['firstname'], $client['lastname'], $otp] , $template['template']);
 			$this->setGsmnumber($client['gsmnumber']);
 			$this->setMessage($message);
 			if ($this->send()) {
-				return true;
+                update_query(
+                    'mod_Smspby_otp',
+                    [
+                        'resend_count' => $otpData['resend_count'] + 1
+                    ],
+                    [
+                        'id' => $otpData['id']
+                    ]);
+                    return ['status' => true];
 			}
-		} elseif (!$data['verify']) {
-            return true;
+		} elseif (!$otpData['verify']) {
+            return ['status' => true];
         }
-		return false;
+		return ['status' => false, 'error' => 'undefined error while sending otp'];
 	}
 	
 	function verifyotp($userOTP) {
-        $otp_res = select_query("mod_Smspby_otp", "*", array('user_id' => $this->getUserid(), 'phone' => $this->getGsmnumber()));
+        $otp_res = select_query("mod_Smspby_otp", "*", ['user_id' => $this->getUserid(), 'phone' => $this->getGsmnumber()]);
         $data = mysql_fetch_array($otp_res);
         if ($data['otp'] == $userOTP) {
-            update_query('mod_Smspby_otp', array('verify' => 1, 'verify_at' => date("Y-m-d H:i:s")), array('user_id' => $this->getUserid(), 'phone' => $this->getGsmnumber()));
+            update_query('mod_Smspby_otp', ['verify' => 1, 'verify_at' => date("Y-m-d H:i:s")], ['user_id' => $this->getUserid(), 'phone' => $this->getGsmnumber()]);
             return true;
         }
         return false;

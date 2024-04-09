@@ -1,0 +1,29 @@
+<div class="internalDiv" style="padding:20px !important;">
+    <table width="100%" class="datatable" border="0" cellspacing="1" cellpadding="3" style="margin: 0px; border: 0px;">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>{{ $LANG['client'] }}</th>
+                <th>{{ $LANG['gsmnumber'] }}</th>
+                <th width="50%" >{{ $LANG['message'] }}</th>
+                <th>{{ $LANG['datetime'] }}</th>
+                <th>{{ $LANG['status'] }}</th>
+                <th width="20"></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% foreach ($messages as $message) %}
+            <tr>
+                <td>{{ $message['id'] }}</td>
+                <td><a href="clientssummary.php?userid={{ $message['user'] }}">{{ $message['firstname'] }} {{ $message['lastname'] }}</a></td>
+                <td>{{ $message['to'] }}</td>
+                <td>{{ $message['text'] }}</td>
+                <td>{{ $message['created_at'] }}</td>
+                <td>{{ $message['status'] }}</td>
+                <td><a href="addonmodules.php?module=smspby_whmcs&tab=messages&deletesms={{ $message['id'] }}" title="{{ $LANG['delete'] }}"><img src="images/delete.gif" width="16" height="16" border="0" alt="{{ $LANG['delete'] }}"></a></td>
+            </tr>
+        {% endforeach %}
+        </tbody>
+    </table>
+    <select  onchange="this.options[this.selectedIndex].value && (window.location = this.options[this.selectedIndex].value);">{{ $pages }}</select>
+</div>

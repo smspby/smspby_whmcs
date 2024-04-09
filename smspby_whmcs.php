@@ -1,5 +1,6 @@
 <?php
 require_once("smsclass.php");
+require_once("templater.php");
 use SMSpby\Lib\Smspby\Smspby;
 
 $smspby = new Smspby();
@@ -13,7 +14,7 @@ function smspby_whmcs_config()
     $config = [
 			"name"        => "SMSp.by",
 			"description" => "WHMCS SMS Addon. Больше информации на https://smsp.by/",
-			"version"     => "1.0.0",
+			"version"     => "1.1.4",
 			"author"      => "SMSp.by",
 			"language"    => "russian",
     ];
@@ -22,12 +23,14 @@ function smspby_whmcs_config()
 
 function smspby_whmcs_activate() 
 {
+    $config = smspby_whmcs_config();
     $query = "CREATE TABLE IF NOT EXISTS `mod_Smspby_otp` (
         `id` int(11) NOT NULL AUTO_INCREMENT,
         `user_id` varchar(11) CHARACTER SET utf8 NOT NULL,
         `phone` varchar(20) CHARACTER SET utf8 NOT NULL,
         `otp` varchar(6) CHARACTER SET utf8 NOT NULL,
         `verify` tinyint(1) DEFAULT 0,
+        `resend_count` int(2) DEFAULT 0,
         `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
         `verify_at` timestamp NULL DEFAULT NULL,
         PRIMARY KEY (`id`)
@@ -37,7 +40,7 @@ function smspby_whmcs_activate()
     $query = "CREATE TABLE IF NOT EXISTS `mod_Smspby_messages` (
         `id` int(11) NOT NULL AUTO_INCREMENT,
         `sender` varchar(40) NOT NULL,
-        `to` varchar(15) DEFAULT NULL,
+        `to` varchar(18) DEFAULT NULL,
         `text` text,
         `phid` varchar(50) DEFAULT NULL,
         `status` varchar(100) DEFAULT NULL,
@@ -56,14 +59,15 @@ function smspby_whmcs_activate()
         `wantsmsfield` int(11) DEFAULT NULL,
         `gsmnumberfield` int(11) DEFAULT NULL,
         `resend_time` int(5) DEFAULT NULL,
+        `sms_count_limit` int(2) DEFAULT NULL,
         `dateformat` varchar(12) CHARACTER SET utf8 DEFAULT NULL,
         `version` varchar(6) CHARACTER SET utf8 DEFAULT NULL,
         PRIMARY KEY (`id`)
     ) ENGINE=MyISAM DEFAULT CHARSET=utf8 AUTO_INCREMENT=1;";
 	mysql_query($query);
 	
-    $query = "INSERT INTO `mod_Smspby_settings` (`api`, `apiparams`, `wantsmsfield`, `gsmnumberfield`, `resend_time`, `dateformat`, `version`) VALUES (
-        'sms', '{\"senderid\":\"\",\"signature\":\"\",\"country_code\":\"\"}', 0, 0, 15, '%d.%m.%y', '1.0.0'
+    $query = "INSERT INTO `mod_Smspby_settings` (`api`, `apiparams`, `wantsmsfield`, `gsmnumberfield`, `resend_time`, `sms_count_limit`, `dateformat`, `version`) VALUES (
+        'sms', '{\"senderid\":\"\",\"signature\":\"\",\"country_code\":\"\"}', 0, 0, 15, 0, '%d.%m.%y', '{$config['version']}'
     );";
 	mysql_query($query);
 
@@ -116,6 +120,8 @@ function smspby_whmcs_upgrade($vars)
 
 function smspby_whmcs_output($vars)
 {
+    $smspbyTemplatesPath = $_SERVER['DOCUMENT_ROOT'] . '/modules/addons/smspby_whmcs/templates/';
+    $config = smspby_whmcs_config();
 	$LANG       = $vars['_lang'];
     putenv("TZ=Europe/Minsk");
     
@@ -284,7 +290,7 @@ function smspby_whmcs_output($vars)
 		if ($_POST['logout']) {
             $query = "TRUNCATE TABLE `mod_Smspby_settings`";
 	        mysql_query($query);
-            $query = "INSERT INTO `mod_Smspby_settings` (`api`, `apiparams`, `wantsmsfield`, `gsmnumberfield`, `resend_time`, `dateformat`, `version`) VALUES ('sms', '{\"senderid\":\"\",\"signature\":\"\",\"country_code\":\"\"}', 0, 0, 15, '%d.%m.%y', '1.1.3')";
+            $query = "INSERT INTO `mod_Smspby_settings` (`api`, `apiparams`, `wantsmsfield`, `gsmnumberfield`, `resend_time`, `sms_count_limit`, `dateformat`, `version`) VALUES ('sms', '{\"senderid\":\"\",\"signature\":\"\",\"country_code\":\"\"}', 0, 0, 15, 0, '%d.%m.%y', '{$config['version']}')";
 	        mysql_query($query);
         }
 		$getAdminUsername = full_query("SELECT `username`,`firstname`,`lastname`,`email` FROM `tbladmins` WHERE `id`='{$_SESSION['adminid']}'");
@@ -346,7 +352,7 @@ function smspby_whmcs_output($vars)
                     </tbody>
                 </table>
                 <div class="clientssummarybox">
-                    <img src="https://smsp.by/img/logo.png" style="border-bottom:1px solid gray">
+                    <img src="https://smsp.by/img/logo.svg" style="border-bottom:1px solid gray; width: 150px">
 		            <div class="support">
 		                <p><b>Need Support</b></p>
                         <p>'.$LANG['supportc2'].'</p>
@@ -455,102 +461,75 @@ function smspby_whmcs_output($vars)
             <p style="text-align:center"><input type="submit" name="submit" class="btn btn-primary save_btn" value="'.$LANG['save'].'"></p>
             </div>
         </form>';
-
     } elseif ($tab == "messages") {
-        if(!empty($_GET['deletesms'])){
-            $smsid = (int) $_GET['deletesms'];
-            $sql   = "DELETE FROM mod_Smspby_messages WHERE id = '$smsid'";
-            mysql_query($sql);
+        // Delete SMS if requested
+        if (!empty($_GET['deletesms'])) {
+            $smsid = (int)$_GET['deletesms'];
+            mysql_query("DELETE FROM `mod_Smspby_messages` WHERE id = '{$smsid}'");
         }
-        echo  '<div class="internalDiv" style="padding:20px !important;"><table width="100%" class="datatable" border="0" cellspacing="1" cellpadding="3" style="margin: 0px; border: 0px;">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>'.$LANG['client'].'</th>
-                <th>'.$LANG['gsmnumber'].'</th>
-                <th width="50%" >'.$LANG['message'].'</th>
-                <th>'.$LANG['datetime'].'</th>
-                <th>'.$LANG['status'].'</th>
-                <th width="20"></th>
-            </tr>
-        </thead>
-        <tbody>
-        ';
 
-        // Getting pagination values.
-        $page   = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-        $limit  = (isset($_GET['limit']) && $_GET['limit']<=50) ? (int)$_GET['limit'] : 10;
-        $start  = ($page > 1) ? ($page*$limit)-$limit : 0;
-        $order  = isset($_GET['order']) ? $_GET['order'] : 'DESC';
-		
-        /* Getting messages order by date desc */
-        $sql    = "SELECT `m`.*,`user`.`firstname`,`user`.`lastname`
-        FROM `mod_Smspby_messages` as `m`
-        JOIN `tblclients` as `user` ON `m`.`user` = `user`.`id`
-        ORDER BY `m`.`datetime` {$order} limit {$start},{$limit}";
-        $result = mysql_query($sql);
-        $i = 0;
+        // Pagination values
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $limit = (isset($_GET['limit']) && $_GET['limit'] <= 50) ? (int)$_GET['limit'] : 10;
+        $start = ($page > 1) ? ($page * $limit) - $limit : 0;
+        $order = isset($_GET['order']) ? $_GET['order'] : 'DESC';
 
-        //Getting total records
-        $sonuc  = mysql_query("SELECT count(id) as toplam FROM `mod_Smspby_messages`");
-        $sonuc  = mysql_fetch_array($sonuc);
-        $toplam = $sonuc['toplam'];
+        // Get messages ordered by date
+        $sql = "SELECT `m`.*, `user`.`firstname`, `user`.`lastname`
+                FROM `mod_Smspby_messages` as `m`
+                JOIN `tblclients` as `user` ON `m`.`user` = `user`.`id`
+                ORDER BY `m`.`created_at` {$order} LIMIT {$start}, {$limit}";
+        $messagesRes = mysql_query($sql);
 
-        //Page calculation
-        $sayfa  = ceil($toplam/$limit);
-        while ($data = mysql_fetch_array($result)) {
+        // Get total records
+        $res = mysql_query("SELECT count(id) as toplam FROM `mod_Smspby_messages`");
+        $totalData = mysql_fetch_array($res);
+        $toplam = $totalData['toplam'];
+
+        // Page calculation
+        $sayfa = ceil($toplam / $limit);
+
+        $messages = [];
+        while ($data = mysql_fetch_array($messagesRes)) {
             if ($data['phid']) {
-                $status = $class->getReport($data['phid']);
-                mysql_query("UPDATE mod_Smspby_messages SET status = '{$status}' WHERE id = " . $data['id']);
-            } else {
-                $status = $data['status'];
+                $data['status'] = $class->getReport($data['phid']);
+                mysql_query("UPDATE mod_Smspby_messages SET status = '{$data['status']}' WHERE id = {$data['id']}");
             }
-
-            $i++;
-            echo  '<tr>
-            <td>'.$data['id'].'</td>
-            <td><a href="clientssummary.php?userid='.$data['user'].'">'.$data['firstname'].' '.$data['lastname'].'</a></td>
-            <td>'.$data['to'].'</td>
-            <td>'.$data['text'].'</td>
-            <td>'.date('Y-m-d H:i:s', $data['created_at']).'</td>
-            <td>'.$status.'</td>
-            <td><a href="addonmodules.php?module=smspby_whmcs&tab=messages&deletesms='.$data['id'].'" title="'.$LANG['delete'].'"><img src="images/delete.gif" width="16" height="16" border="0" alt="'.$LANG['delete'].'"></a></td></tr>';
+            $messages[] = $data;
         }
-        echo '</tbody></table>';  
-        $list="";
-        for($a=1;$a<=$sayfa;$a++)
-        {
-            $selected = ($page==$a) ? 'selected="selected"' : '';
-            $list.="<option value='addonmodules.php?module=smspby_whmcs&tab=messages&page={$a}&limit={$limit}&order={$order}' {$selected}>{$a}</option>";
-        }
-        echo "<select  onchange=\"this.options[this.selectedIndex].value && (window.location = this.options[this.selectedIndex].value);\">{$list}</select></div>";
 
-    } elseif($tab=="sendbulk") {
+        $listPages = "";
+        for ($a = 1; $a <= $sayfa; $a++) {
+            $selected = ($page == $a) ? 'selected="selected"' : '';
+            $listPages .= "<option value='addonmodules.php?module=smspby_whmcs&tab=messages&page={$a}&limit={$limit}&order={$order}' {$selected}>{$a}</option>";
+        }
+
+        $templ = new TemplateEngine($smspbyTemplatesPath);
+        $templ->assign('LANG', $LANG);
+        $templ->assign('messages', $messages);
+        $templ->assign('pages', $listPages);
+        echo $templ->render('adminMessages.twig');
+    } elseif ($tab=="sendbulk") {
         $apiparams = $class->getParams();
         if(!empty($_POST['client'])){
-            $userinf     = explode("_",$_POST['client']);
+            $userinf     = explode("_", $_POST['client']);
             $userid      = $userinf[0];
             $gsmnumber   = $userinf[1];
-            $replacefrom = array("{firstname}","{lastname}");
-            $replaceto   = array($userinf[2],$userinf[3]);
-            $message     = str_replace($replacefrom,$replaceto,$_POST['message']);
+            $replacefrom = ["{firstname}", "{lastname}"];
+            $replaceto   = [$userinf[2], $userinf[3]];
+            $message     = str_replace($replacefrom, $replaceto, $_POST['message']);
             $class->setGsmnumber($gsmnumber);
             $class->setMessage($message);
             $class->setUserid($userid);
-            $result      = $class->send();
-            if($result == false){
-                $responseToShow =  $class->getErrors();
-            }else{
-                $responseToShow =  $LANG['smssent'].' '.$gsmnumber;
-            }
-
-            if($_POST["debug"] == "ON"){
-                $debug = 1;
+            $result = $class->send();
+            if ($result == false) {
+                $responseToShow = $class->getErrors();
+            } else {
+                $responseToShow = $LANG['smssent'] . ' ' . $gsmnumber;
             }
         }
 
-        $userSql = "SELECT `a`.`id`,`a`.`firstname`, `a`.`lastname`, `a`.`country`, `a`.`phonenumber` as `gsmnumber`
-        FROM `tblclients` as `a` order by `a`.`firstname`";
+        $userSql = "SELECT `a`.`id`,`a`.`firstname`, `a`.`lastname`, `a`.`country`, `a`.`phonenumber` as `gsmnumber` FROM `tblclients` as `a` order by `a`.`firstname`";
         $clients = '';
         $result = mysql_query($userSql);
         while ($data = mysql_fetch_array($result)) {
@@ -635,33 +614,22 @@ function smspby_whmcs_output($vars)
     } elseif ($tab == "advanced_settings") {
         if ($_POST['submit']) {
             $update = array(
-                'resend_time' => $_POST['resend_timer']
+                'resend_time' => $_POST['resend_timer'],
+                'sms_count_limit' => $_POST['sms_count_limit']
             );
             update_query("mod_Smspby_settings", $update, "");
         }
-		$settings   = $class->getSettings();
-		$resend_time = !empty($settings['resend_time'])?$settings['resend_time']:15;
-        echo '<form action="" method="post">
-        <input type="hidden" name="action" value="save" />
-            <div class="internalDiv">
-                <table class="form" width="100%" border="0" cellspacing="2" cellpadding="3" style="margin:0px;border: 0px;">
-                    <tbody><tr>
-                    <td class="fieldlabel" width="30%">OTP Re-send Timer (in seconds)</td>
-                    <td class="fieldarea">
-                        <input type="number" name="resend_timer" class="form-control input-250" id="resend_timer" value="'.$resend_time.'">
-                    </td>
-                </tr>';
-            echo '<tr>
-                <td colspan="2"><hr></td>
-            </tr>';
-        echo '
-        </tbody>
-                </table>
-            <p style="text-align:center"><input type="submit" name="submit" class="btn btn-primary save_btn" value="'.$LANG['save'].'"></p>
-            </div>
-        </form>';
+		$settings = $class->getSettings();
+		$resend_time = !empty($settings['resend_time']) ? $settings['resend_time'] : 15;
+        $sms_count_limit = !empty($settings['sms_count_limit']) ? $settings['sms_count_limit'] : 0;
 
+        $templ = new TemplateEngine($smspbyTemplatesPath);
+        $templ->assign('LANG', $LANG);
+        $templ->assign('resend_time', $resend_time);
+        $templ->assign('sms_count_limit', $sms_count_limit);
+        echo $templ->render('adminSettings.twig');
     }
+
     $credit =  $class->getBalance();
     if($credit){
         echo '
