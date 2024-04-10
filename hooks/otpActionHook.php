@@ -19,7 +19,7 @@ if (isset($_POST['action'])) {
 			exit;
 		case 'otpVerification':
 			$userOTP = $_POST['otp'];
-			$userPhone = $_POST['user_phone'];
+			$userPhone = $class->cleanPhone($_POST['user_phone']);
 			$class->setGsmnumber($userPhone);
 			if ($class->verifyotp($userOTP)) {
 				echo json_encode(['code' => 1, 'message' => 'Your phone number has been verified.', 'data' => []]);
@@ -37,13 +37,19 @@ add_hook('AdminAreaClientSummaryPage', 1, function($vars) {
 
 	if ($userID) {
 		$userDetails = mysql_fetch_array($class->getClientDetailsBy($userID));
-		$res = select_query("mod_Smspby_otp", "*", array('user_id' => $userID, 'phone' => $userDetails['gsmnumber']));
+		$phone = $class->cleanPhone($userDetails['gsmnumber']);
+		$res = select_query("mod_Smspby_otp", "*", array('user_id' => $userID, 'phone' => $phone));
 		$data = mysql_fetch_array($res); 
 
 		if ($data && $data['verify']) {
-			return '<div class="clientsummaryactions">Phone Verified: <span id="taxstatus" class="csajaxtoggle"><strong class="textgreen">Yes</strong></span></div>';
+			return '<div class="clientsummaryactions">Этот пользователь: <span id="taxstatus" class="csajaxtoggle"><strong class="textgreen">Верифицировал свой номер телефона</strong></span></div>';
 		} else {
-			return '<div class="clientsummaryactions">Phone Verified: <span id="taxstatus" class="csajaxtoggle"><strong class="textred">No</strong></span></div>';						
+			return '<div class="verification-banner email-verification alert-warning" role="alert">
+                <i class="fas fa-exclamation-triangle"></i>
+                &nbsp;
+                Этот пользователь еще не верифицировал свой номер телефона                
+            </div>';
+			
 		}
 	}
 });  
@@ -59,7 +65,9 @@ add_hook('ClientAreaHeadOutput', 1, function($vars) {
 // Блок на сранице клиента, если номер не подтвержден.
 add_hook('ClientAreaPage', 1, function($vars) {
 	if (isset($vars['client'])) {
-		$res = select_query("mod_Smspby_otp", "*", array('user_id' => $vars['client']->id, 'phone' => $vars['client']->phonenumber));
+		$class = new Sms();
+		$phone = $class->cleanPhone($vars['client']->phonenumber);
+		$res = select_query("mod_Smspby_otp", "*", array('user_id' => $vars['client']->id, 'phone' => $phone));
 		$data = mysql_fetch_array($res);
 
 		$output['phoneverifycheck'] = isset($data['verify']) ? $data['verify'] : 0;
@@ -74,27 +82,29 @@ add_hook('ClientAreaHeaderOutput', 1, function($vars) {
 		$class   = new Sms();
 		$config = $class->getSettings();	
 		$return = '';
-		$res = select_query("mod_Smspby_otp", "*", array('user_id' => $vars['client']->id, 'phone' => $vars['client']->phonenumber));
+		
+		$cleanPhone = $class->cleanPhone($vars['client']->phonenumber);
+		$res = select_query("mod_Smspby_otp", "*", array('user_id' => $vars['client']->id, 'phone' => $cleanPhone));
 		$data = mysql_fetch_array($res);
 		$base = basename($_SERVER['REQUEST_URI']);
 		$filename = explode("?", $base);
 		if (empty($data)) {
-			$otpInput = '<p class="text-center" style="font-size:23px;">Код активации для ' . $vars['client']->phonenumber . '</p>';
-			$button = '<a class="btn btn-success btn-sm btn-block" href="javascript::void(0)" name="resend-otp" style="pointer-events: auto; cursor: pointer; opacity: 1; float: right; font-size:18px;"> Отправить код на телефон</a>';
+			$otpInput = '<p class="text-left" style="font-size:23px;">Код активации для ' . $vars['client']->phonenumber . '</p>';
+			$button = '<a class="btn btn-success btn-sm btn-block" href="javascript::void(0)" name="resend-otp" style="pointer-events: auto; cursor: pointer; opacity: 1; float: right; font-size:16px;"><i class="fas fa-mobile-alt"></i>&nbsp; Отправить код на телефон</a>';
 			$showOneMore = ' style="display: none;"';
 		} elseif ($data['resend_count'] >= ($config['sms_count_limit'] - 1) && $config['sms_count_limit'] > 0) {
 			$otpInput = '
-			<p class="text-center" style="font-size:23px;">Код активации для ' . $vars['client']->phonenumber . '</p>
-			<div class="form-group col-lg-8 col-xs-12">
+			<p class="text-left" style="font-size:22px;padding-bottom:10px;">Код активации для ' . $vars['client']->phonenumber . '</p>
+			<div class="form-group col-lg-6 col-xs-12">
 				<input type="text" name="otp" class="form-control" id="otp" placeholder="Введите код">
-				<p class="text-center" style="font-size: 12px; color: red;">Вы превысили лимит отправки кода. Свяжитесь с технической поддержкой.</p>
+				<p class="text-left" style="font-size: 13px; margin-top: 20px;">Вы <span style="color:red;">превысили лимит отправки кода</span> на этот номер. Свяжитесь с <a href="/submitticket.php">технической поддержкой</a> или введите последний высланный код.</p>
 			</div>';
-			$button = '<button type="submit" class="btn btn-primary">Проверить код</button>';
+			$button = '<button type="submit" class="btn btn-primary">Подтвердить код</button>';
 			$showOneMore = ' style="display: none;"';
 		} elseif (!$data['verify']) {
 			$otpInput = '
-			<p class="text-center" style="font-size:23px;">Код активации для ' . $vars['client']->phonenumber . '</p>
-			<div class="form-group col-lg-8 col-xs-12">
+			<p class="text-left" style="font-size:23px;">Код активации для ' . $vars['client']->phonenumber . '</p>
+			<div class="form-group col-lg-12 col-xs-12">
 				<input type="text" name="otp" class="form-control" id="otp" placeholder="Введите код">
 			</div>';
 			$button = '<button type="submit" class="btn btn-primary">Проверить код</button>';
@@ -114,11 +124,19 @@ add_hook('ClientAreaHeaderOutput', 1, function($vars) {
 							<!-- Modal content-->
 							<div class="modal-content">
 								<div class="modal-header">
-									<h4 class="modal-title">Активация номера</h4>
+									<div clas="row">
+										<div class="col-lg-6">
+										<h4 class="modal-title">Активация номера</h4>
+										</div>
+										<div class="col-lg-6">
+											<a href="javascript::void(0)" id="closeOtp" style="pointer-events: auto; cursor: pointer; opacity: 1; float: right;color: #000;font-size: 18px;"><i class="fas fa-times"></i></a>
+										</div>
+									</div>
+									
 								</div>
 								<div class="modal-body col-lg-12">
 									' . $otpInput . '
-									<div class="form-group col-lg-12 col-xs-12">
+									<div class="form-group col-lg-6 col-xs-12">
 										' . $button . '
 									</div>
 								</div>
@@ -130,9 +148,6 @@ add_hook('ClientAreaHeaderOutput', 1, function($vars) {
 									<p class="text-center margin-10"'.$showOneMore.'>
 										<a href="javascript::void(0)" id="resend-otp-one-more" name="resend-otp" style="pointer-events: auto; cursor: pointer; opacity: 1; float: right;">Отправить еще раз</a>
 										<span id="timer" style="min-width: 80px; float: right; display: none;">00:00:00 sec</span>
-									</p>
-									<p class="text-right margin-10">
-										<a href="javascript::void(0)" id="closeOtp" style="pointer-events: auto; cursor: pointer; opacity: 1; float: right;">Закрыть</a>
 									</p>
 								</div>
 							</div>
@@ -148,7 +163,9 @@ add_hook('ClientAreaHeaderOutput', 1, function($vars) {
 add_hook('ClientAreaFooterOutput', 1, function($vars) {
 	if(isset($vars['client'])) {
 		$return = '';
-		$res = select_query("mod_Smspby_otp", "*", array('user_id' => $vars['client']->id, 'phone' => $vars['client']->phonenumber));
+		$class = new Sms();
+		$phone = $class->cleanPhone($vars['client']->phonenumber);
+		$res = select_query("mod_Smspby_otp", "*", array('user_id' => $vars['client']->id, 'phone' => $phone));
 		$data = mysql_fetch_array($res);
 		$base = basename($_SERVER['REQUEST_URI']);
 		$filename = explode("?", $base);

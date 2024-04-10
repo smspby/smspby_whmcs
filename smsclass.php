@@ -109,22 +109,22 @@ class Sms {
 	    $this->setUserid($userID);
 		$client_query = $this->getClientDetailsBy($this->getUserid());
 		$client = mysql_fetch_array($client_query);
+        $phone = $this->cleanPhone($client['gsmnumber']);
+        $this->setGsmnumber($phone);
 		
-        $otp_res = select_query("mod_Smspby_otp", "*", ['user_id' => $userID, 'phone' => $client['gsmnumber']]);
+        $otp_res = select_query("mod_Smspby_otp", "*", ['user_id' => $userID, 'phone' => $phone]);
 		$otpData = mysql_fetch_array($otp_res);
         if (empty($otpData)) {
             $otp = rand(100000, 999999);
 			$template = $this->getTemplateDetails('ClientAreaRegister_clientarea');
 			$message = str_replace(['{firstname}' , '{lastname}', '{otp}'] , [$client['firstname'], $client['lastname'], $otp] , $template['template']);
-			$this->setGsmnumber($client['gsmnumber']);
 			$this->setMessage($message);
-            $values = array(
+			insert_query('mod_Smspby_otp', [
 				'user_id' => $userID,
-				'phone' => $client['gsmnumber'],
+				'phone' => $phone,
                 'otp' => $otp,
 				'verify' => 0
-			);
-			insert_query('mod_Smspby_otp', $values);
+                ]);
 			if ($this->send()) {
 				return ['status' => true];
 			}
@@ -136,7 +136,6 @@ class Sms {
             $otp = $otpData['otp'];
             $template = $this->getTemplateDetails('ClientAreaRegister_clientarea');
 			$message = str_replace(['{firstname}' , '{lastname}', '{otp}'] , [$client['firstname'], $client['lastname'], $otp] , $template['template']);
-			$this->setGsmnumber($client['gsmnumber']);
 			$this->setMessage($message);
 			if ($this->send()) {
                 update_query(
@@ -163,6 +162,12 @@ class Sms {
             return true;
         }
         return false;
+    }
+
+    // cleanPhone function is used to clean the phone number. Phone can content only numbers and + sign
+    function cleanPhone($phone){
+        $phone = preg_replace('/[^0-9+]/', '', $phone);
+        return $phone;
     }
 
     function getBalance(){

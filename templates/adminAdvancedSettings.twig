@@ -1,0 +1,27 @@
+<form action="" method="post">
+    <input type="hidden" name="action" value="save" />
+    <div class="internalDiv">
+        <table class="form" width="100%" border="0" cellspacing="2" cellpadding="3" style="margin:0px;border: 0px;">
+            <tbody>
+                <tr>
+                    <td class="fieldlabel" width="30%">{{ $LANG['settingsReSendTimerInSeconds'] }}</td>
+                    <td class="fieldarea">
+                        <input type="number" name="resend_timer" class="form-control input-250" id="resend_timer" value="{{ $resend_time }}">
+                    </td>
+                </tr>
+                <tr>
+                    <td class="fieldlabel" width="30%">{{ $LANG['settingsSmsCountLimit'] }}</td>
+                    <td class="fieldarea">
+                        <input type="number" name="sms_count_limit" class="form-control input-250" id="sms_count_limit" value="{{ $sms_count_limit }}">
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2"><hr></td>
+                </tr>
+            </tbody>
+        </table>
+        <p style="text-align:center">
+            <input type="submit" name="submit" class="btn btn-primary save_btn" value="{{ $LANG['save'] }}">
+        </p>
+    </div>
+</form>

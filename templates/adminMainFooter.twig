@@ -1,0 +1,70 @@
+    <div style="text-align: left;background-color: whiteSmoke;margin: 0px;padding: 5px; border: 1px solid #ddd;">
+        <b>{{ $LANG['credit'] }}:</b> {{ $balance }}
+    </div>
+    {{ $LANG['lisans'] }}
+</div>
+<script>
+    function saveLoginForm()
+    { 
+        $('#smspbyform').submit();
+        return true;
+    }
+
+    function togglecheckbox(obj)
+    {
+        var id = parseInt($(obj).attr('name').split('_')[0], 10);
+        
+        if($(obj).is(':checked'))
+        {
+            $("#" + id + "_check").prop("readonly", false);
+        }
+        else
+        {
+            $("#" + id + "_check").prop("readonly", true);
+        }
+    }
+
+    function insertToken(obj)
+    {
+        var dataToken = $(obj).attr('data-token');
+        var id = parseInt($(obj).parent('td').attr('class').split('_')[0], 10);
+        insertAtCaret(dataToken, id);
+    }
+
+    function insertAtCaret(textFeildValue, id) 
+    {
+        var textObj = document.getElementById("" + id + "_check");
+        if (document.all) {
+            if (textObj.createTextRange && textObj.caretPos) {
+                var caretPos = textObj.caretPos;
+                caretPos.text = caretPos.text.charAt(caretPos.text.length - 1) == ' ' ? textFeildValue + ' ' : textFeildValue;
+            }
+            else {
+                textObj.value = textObj.value + textFeildValue;
+            }
+        }
+        else {
+            if (textObj.setSelectionRange) {
+                var rangeStart = textObj.selectionStart;
+                var rangeEnd = textObj.selectionEnd;
+                var tempStr1 = textObj.value.substring(0, rangeStart);
+                var tempStr2 = textObj.value.substring(rangeEnd);
+
+                textObj.value = tempStr1 + textFeildValue + tempStr2;
+            }
+            else {
+                alert("This version of Mozilla based browser does not support setSelectionRange");
+            }
+        }
+    }
+
+    $(".toggle-password").click(function() {
+        $(this).toggleClass("fa-eye fa-eye-slash");
+        var input = $($(this).attr("toggle"));
+        if (input.attr("type") == "password") {
+            input.attr("type", "text");
+        } else {
+            input.attr("type", "password");
+        }
+    });
+</script>

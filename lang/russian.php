@@ -2,6 +2,7 @@
 $_ADDONLANG['lang']               = "Русский";
 $_ADDONLANG['uptodate']           = "Ваш модуль новейшей версии.";
 $_ADDONLANG['save']               = "Сохранить";
+$_ADDONLANG['logout']             = "Выйти";
 $_ADDONLANG['user']               = "Имя пользователя";
 $_ADDONLANG['pass']               = "Пароль";
 $_ADDONLANG['email']              = "Email";
@@ -42,6 +43,5 @@ $_ADDONLANG['credit']             = "Баланс";
 $_ADDONLANG['support']            = "Поддержка";
 $_ADDONLANG['logo']               = "<img src=\"https://smsp.by/img/logo.png\" width=\"180px;\" style=\"float:left;margin-right: 75px;\">";
 $_ADDONLANG['supportc2']          = "<a href=\"https://smsp.by/contact\">SMSp.by</a>";
-$_ADDONLANG['supportc3']          = "";
 $_ADDONLANG['settingsReSendTimerInSeconds'] = "Таймер повторной отправки SMS (в секундах)";
 $_ADDONLANG['settingsSmsCountLimit'] = "Лимит количества OTP SMS для одного номера телефона";

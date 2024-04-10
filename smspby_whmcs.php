@@ -14,7 +14,7 @@ function smspby_whmcs_config()
     $config = [
 			"name"        => "SMSp.by",
 			"description" => "WHMCS SMS Addon. Больше информации на https://smsp.by/",
-			"version"     => "1.1.4",
+			"version"     => "1.1.5",
 			"author"      => "SMSp.by",
 			"language"    => "russian",
     ];
@@ -27,7 +27,7 @@ function smspby_whmcs_activate()
     $query = "CREATE TABLE IF NOT EXISTS `mod_Smspby_otp` (
         `id` int(11) NOT NULL AUTO_INCREMENT,
         `user_id` varchar(11) CHARACTER SET utf8 NOT NULL,
-        `phone` varchar(20) CHARACTER SET utf8 NOT NULL,
+        `phone` varchar(20) CHARACTER SET utf8 NOT NULL UNIQUE,
         `otp` varchar(6) CHARACTER SET utf8 NOT NULL,
         `verify` tinyint(1) DEFAULT 0,
         `resend_count` int(2) DEFAULT 0,
@@ -127,158 +127,19 @@ function smspby_whmcs_output($vars)
     
     $class = new Sms();
 	$tab   = $_GET['tab'];
-    echo '
-    <div id="SMSpby_plugin_container">
-        <style>
-            #count {
-                margin: 0px 5px;
-            }
-            .right {
-                float: right;
-            }
-            .contentarea {
-                background: #f5f5f5 !important;
-            }
-            #clienttabs * {
-                margin: inherit;
-                padding: inherit;
-                border: inherit;
-                color: inherit;
-                background: inherit;
-                background-color: inherit;
-            }
-            #SMSpby_plugin_container textarea {
-                border: 1px solid #cccccc !important;
-                padding: 5px !important;
-            }
-            #SMSpby_plugin_container .internalDiv {
-                text-align: left !important;
-                background: #fff !important;
-                margin: 0px !important;
-                padding: 5px !important;
-                border: 1px solid #ddd !important;
-            }
-            #SMSpby_plugin_container .button {
-                width: 140px !important;
-                height: 43px !important;
-                color: #666 !important;
-                padding: 10px !important;
-                margin-left: 31% !important;
-                margin-top: 10px !important;
-            }
-            #SMSpby_plugin_container input[type="checkbox"] {
-                border-radius: 0px !important;
-            }
-            @media (max-width: 768px) {
-                #clienttabs ul li {
-                    padding: 0 7.5px !important;
-                }
-            }
-            @media (min-width: 768px) {
-                .internalDiv.settings {
-                    display: flex;
-                }
-                .settings table {
-                    width: 60%;
-                }
-            }
-            #clienttabs {
-                position: relative;
-                z-index: 99;
-            }
-            #clienttabs ul li {
-                display: inline-block;
-                margin-right: 3px;
-                border: 1px solid #ddd;
-                border-bottom: 0px;
-                padding: 12px;
-                margin-bottom: -1px;
-            }
-            #clienttabs ul a {
-                border: 0px;
-            }
-            #clienttabs ul {
-                float: left;
-                margin-bottom: 0px;
-            }
-            #clienttabs {
-                float: left;
-            }
-            .tabselected {
-                background-color: #fff !important;
-            }
-            table.form td.fieldarea {
-                background-color: white !important;
-            }
-            table.form td {
-                padding: 3px 15px !important;
-            }
-            table.form {
-                padding-top: 20px !important;
-            }
-            .field-icon {
-                margin-left: 400px;
-                margin-top: -22px;
-                position: absolute;
-            }
-            .support {
-                border-radius: 90px;
-                border: 1px solid gray;
-                margin-top: 20px;
-                text-align: center;
-            }
-        </style>
-        <span id="responsemsg"></span>
-        <div id="clienttabs">
-            <ul>
-                <li class="' . (($tab == "settings" || (@$_GET['type'] == "" && $tab == "")) ? "tabselected" : "tab") .'">
-                    <a href="addonmodules.php?module=smspby_whmcs&tab=settings" title="' . $LANG['settings'] . '">
-                        <span class="hidden-xs">' . $LANG['settings'] . '</span>
-                        <span class="visible-xs"><i class="fa fa-cog"></i></span>
-                    </a>
-                </li>
-                <li class="' . ((@$_GET['type'] == "client") ? "tabselected" : "tab") .'">
-                    <a href="addonmodules.php?module=smspby_whmcs&tab=templates&type=client" title="' . $LANG['clientsmstemplates'] .'">
-                        <span class="hidden-xs">' . $LANG['clientsmstemplates'] .'</span>
-                        <span class="visible-xs"><i class="fa fa-user"></i></span>
-                    </a>
-                </li>
-                <li class="' . ((@$_GET['type'] == "admin") ? "tabselected" : "tab") .'">
-                    <a href="addonmodules.php?module=smspby_whmcs&tab=templates&type=admin" title="' . $LANG['adminsmstemplates'] .'">
-                        <span class="hidden-xs">' . $LANG['adminsmstemplates'] .'</span>
-                        <span class="visible-xs"><i class="fa fa-user"></i></span>
-                    </a>
-                </li>
-                <li class="' . (($tab == "sendbulk") ? "tabselected" : "tab") .'">
-                    <a href="addonmodules.php?module=smspby_whmcs&tab=sendbulk" title="' . $LANG['sendsms'] .'">
-                        <span class="hidden-xs">' . $LANG['sendsms'] .'</span>
-                        <span class="visible-xs"><i class="fa fa-envelope"></i></span>
-                    </a>
-                </li>
-                <li class="' . (($tab == "messages") ? "tabselected" : "tab") .'">
-                    <a href="addonmodules.php?module=smspby_whmcs&amp;tab=messages" title="' . $LANG['messages'] .'">
-                        <span class="hidden-xs">' . $LANG['messages'] .'</span>
-                        <span class="visible-xs"><i class="fa fa-table"></i></span>
-                    </a>
-                </li>
-                <li class="' . (($tab == "advanced_settings") ? "tabselected" : "tab") .'">
-                    <a href="addonmodules.php?module=smspby_whmcs&amp;tab=advanced_settings" title="' . $LANG['advanced'] .'">
-                        <span class="hidden-xs">' . $LANG['advanced'] .'</span>
-                        <span class="visible-xs"><i class="fa fa-cog"></i></span>
-                    </a>
-                </li>
-            </ul>
-        </div>
-        <div style="clear:both;"></div>
-    </div>
-    ';
+    $type = $_GET['type'];
+    $templ = new TemplateEngine($smspbyTemplatesPath);
+    $templ->assign('LANG', $LANG);
+    $templ->assign('type', $type);
+    $templ->assign('tab', $tab);
+    echo $templ->render('adminMainHeader.twig');
 
     if (!isset($tab) || $tab == "settings") {
         /* UPDATE SETTINGS */
         if ($_POST['params']) {
 			$update = [
-                "api"            => $_POST['api'],
-                "apiparams"      => htmlspecialchars_decode(json_encode($_POST['params'])),
+                'api'            => $_POST['api'],
+                'apiparams'      => htmlspecialchars_decode(json_encode($_POST['params'])),
                 'wantsmsfield'    => $_POST['wantsmsfield'],
                 'gsmnumberfield'  => $_POST['gsmnumberfield'],
                 'dateformat'     => $_POST['dateformat']
@@ -293,74 +154,17 @@ function smspby_whmcs_output($vars)
             $query = "INSERT INTO `mod_Smspby_settings` (`api`, `apiparams`, `wantsmsfield`, `gsmnumberfield`, `resend_time`, `sms_count_limit`, `dateformat`, `version`) VALUES ('sms', '{\"senderid\":\"\",\"signature\":\"\",\"country_code\":\"\"}', 0, 0, 15, 0, '%d.%m.%y', '{$config['version']}')";
 	        mysql_query($query);
         }
-		$getAdminUsername = full_query("SELECT `username`,`firstname`,`lastname`,`email` FROM `tbladmins` WHERE `id`='{$_SESSION['adminid']}'");
-        $getAdminUsername = mysql_fetch_assoc($getAdminUsername);
 
-        $apiparams  = $class->getParams();
-		$disabled   = '';
-		$smspby = new Smspby();
+        $apiparams = $class->getParams();
         if ($apiparams['pattern'] == '') {
             $apiparams['pattern'] = '+375';
         }
-	
-        echo '
-        <script type="text/javascript">
-            $(document).ready(function(){
-                $("#api").change(function(){
-                    $("#form").submit();
-                });
-            });
-        </script>
-        <form action="" method="post" id="smspbyform">
-            <div class="internalDiv settings">
-                <table class="form" border="0" cellspacing="2" cellpadding="3" style="margin:0px;border: 0px;">
-                    <tbody>
-                        <tr>
-                            <td class="fieldlabel" width="30%">'.$LANG['username'].'</a></td>
-                            <td class="fieldarea"><input type="text" name="params[username]" size="40" value="' . $apiparams['username'] . '" id="inputUsername" class="form-control"></td>
-                        </tr>
-                        <tr>
-                            <td class="fieldlabel" width="30%">'.$LANG['apikey'].'</a></td>
-                            <td class="fieldarea"><input type="password" name="params[apikey]" size="40" value="' . $apiparams['apikey'] . '" id="inputPassword" class="form-control"> <span toggle="#inputPassword" class="fa fa-fw fa-eye field-icon toggle-password"></span></td>
-                        </tr>						
-						<tr>
-                            <td class="fieldlabel" width="30%">'.$LANG['senderid'].'</td>
-                            <td class="fieldarea"><input type="text" name="params[senderid]" size="40" value="' . $apiparams['senderid'] . '" id="selectSenderid" class="form-control"></td>
-                        </tr>
-                        <tr>
-                            <input type="hidden"  value="sms" name="api" id="api"/>
-                            <td class="fieldlabel" width="30%">'.$LANG['pattern'].'</a></td>
-                            <td class="fieldarea"><input type="text" name="params[pattern]" size="40" value="' . $apiparams['pattern'] . '" id="pattern" class="form-control"></td>
-                        </tr>
-                        <tr>
-                            <td class="fieldlabel" width="30%">
-                                <button type="button" id="save_details_smspby" class="save_btn btn btn-sm btn-primary" onclick="saveLoginForm()" />'.$LANG['save'].'</button>
-                                <input type="hidden" name="action" value="save" />
-                            </td>
-        </form>
-                            <td class="fieldarea">
-        ';
-		if($apiparams['senderid'] != '')
-		{
-			                    echo '<form action="" method="post" id="form">
-			                            <input type="hidden" name="logout" value="save" />
-                                        <button class="btn btn-sm btn-danger" type="submit" name="Logout" >Logout</button>
-                                    </form>';
-		}
-		echo '              </td>
-                        </tr>
-                    </tbody>
-                </table>
-                <div class="clientssummarybox">
-                    <img src="https://smsp.by/img/logo.svg" style="border-bottom:1px solid gray; width: 150px">
-		            <div class="support">
-		                <p><b>Need Support</b></p>
-                        <p>'.$LANG['supportc2'].'</p>
-                        <p>'.$LANG['supportc3'].'</p>
-		            </div>
-		        </div>
-		    </div>';
-		
+        
+        $templ = new TemplateEngine($smspbyTemplatesPath);
+        $templ->assign('LANG', $LANG);
+        $templ->assign('apiparams', $apiparams);
+        $templ->assign('senderid', $apiparams['senderid']);
+        echo $templ->render('adminSettings.twig');
     } elseif ($tab == "templates") {
         if ($_POST['submit']) {
             $where = array("type" => array("sqltype" => "LIKE", "value" => $_GET['type']));
@@ -627,83 +431,16 @@ function smspby_whmcs_output($vars)
         $templ->assign('LANG', $LANG);
         $templ->assign('resend_time', $resend_time);
         $templ->assign('sms_count_limit', $sms_count_limit);
-        echo $templ->render('adminSettings.twig');
+        echo $templ->render('adminAdvancedSettings.twig');
     }
 
     $credit =  $class->getBalance();
-    if($credit){
-        echo '
-            <div style="text-align: left;background-color: whiteSmoke;margin: 0px;padding: 5px; border: 1px solid #ddd;">
-            <b>'.$LANG['credit'].':</b> '.$credit.'
-            </div>';
+    if(!$credit){
+        $credit = 'error';
     }
-	echo $LANG['lisans'];
-    echo '</div>';
-?>
-<script>
-function saveLoginForm()
-{ 
-    $('#smspbyform').submit();
-    return true;
-}
-
-function togglecheckbox(obj)
-{
-    var id = parseInt($(obj).attr('name').split('_')[0], 10);
-    
-    if($(obj).is(':checked'))
-    {
-        $("#" + id + "_check").prop("readonly", false);
-    }
-    else
-    {
-        $("#" + id + "_check").prop("readonly", true);
-    }
-}
-
-function insertToken(obj)
-{
-    var dataToken = $(obj).attr('data-token');
-    var id = parseInt($(obj).parent('td').attr('class').split('_')[0], 10);
-    insertAtCaret(dataToken, id);
-}
-
-function insertAtCaret(textFeildValue, id) 
-{
-    var textObj = document.getElementById("" + id + "_check");
-    if (document.all) {
-        if (textObj.createTextRange && textObj.caretPos) {
-            var caretPos = textObj.caretPos;
-            caretPos.text = caretPos.text.charAt(caretPos.text.length - 1) == ' ' ? textFeildValue + ' ' : textFeildValue;
-        }
-        else {
-            textObj.value = textObj.value + textFeildValue;
-        }
-    }
-    else {
-        if (textObj.setSelectionRange) {
-            var rangeStart = textObj.selectionStart;
-            var rangeEnd = textObj.selectionEnd;
-            var tempStr1 = textObj.value.substring(0, rangeStart);
-            var tempStr2 = textObj.value.substring(rangeEnd);
-
-            textObj.value = tempStr1 + textFeildValue + tempStr2;
-        }
-        else {
-            alert("This version of Mozilla based browser does not support setSelectionRange");
-        }
-    }
-}
-
-$(".toggle-password").click(function() {
-    $(this).toggleClass("fa-eye fa-eye-slash");
-    var input = $($(this).attr("toggle"));
-    if (input.attr("type") == "password") {
-        input.attr("type", "text");
-    } else {
-        input.attr("type", "password");
-    }
-});
-</script>
-<?php
+    $templ = new TemplateEngine($smspbyTemplatesPath);
+    $templ->assign('LANG', $LANG);
+    $templ->assign('balance', $credit);
+    $templ->assign('sms_count_limit', $sms_count_limit);
+    echo $templ->render('adminMainFooter.twig');
 }

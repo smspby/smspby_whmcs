@@ -50,7 +50,29 @@ class TemplateEngine {
             return $code;
         }, $output);
         
+        // Замена конструкции {% if () %} {% else %} {% endif %}
+        $output = preg_replace_callback('/{%\s*if\s*\((.*?)\)\s*%}(.*?){% else %}(.*?){%\s*endif\s*%}/s', function ($matches) {
+            // Извлекаем переменные из текущего контекста
+            extract($this->variables);
+            // Выполняем оператор if
+            eval('$condition = ' . $matches[1] . ';');
+            if ($condition) {
+                return $matches[2];
+            } else {
+                return $matches[3];
+            }
+        }, $output);
         
+        // Замена конструкции {% if () %} {% endif %}
+        $output = preg_replace_callback('/{%\s*if\s*\((.*?)\)\s*%}(.*?){%\s*endif\s*%}/s', function ($matches) {
+            // Извлекаем переменные из текущего контекста
+            extract($this->variables);
+            // Выполняем оператор if
+            eval('$condition = ' . $matches[1] . ';');
+            if ($condition) {
+                return $matches[2];
+            }
+        }, $output);
     
         return $output;
     }

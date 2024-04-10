@@ -7,32 +7,27 @@ class Smspby{
      * Sender.
      * @var string Declare senderid of user.
      */
-    private $sender;      
-    /**
-     * Route.
-     * @var string Declare route of user.
-     */
-    private $route;          
+    private $sender;
     /**
      * Url.
      * @var string Define url.
      */
-    private $url = 'https://cabinet.smsp.by/api';   
+    private $url = 'https://cabinet.smsp.by/api';
     /**
      * Authentication parameters.
      * @var array Define Authparams. 
      */
-    private $authParams = [];   
+    private $authParams = [];
     /**
      * Prefix.
      * @var string Prefix eg.375.
      */
-	private $prefix; 
+	private $prefix;
 	/**
     * Errors.
     * @var array errors.
     */
-    private $errors = []; 
+    private $errors = [];
 	/**
     * Additional options.
     * @var array options.
@@ -44,7 +39,7 @@ class Smspby{
     * @param string $user - SMSp.by account username.
     * @param string $apikey  - SMSp.by account apikey.
     *
-    * @return object 
+    * @return object
     */
     function authWithUserIdApiKey($user, $apikey)
     {
@@ -54,19 +49,6 @@ class Smspby{
         ];
         return $this;
     }
-
-    /*****************************************************************************************
-    * Used to set route. 
-    * 
-    * @param string $route - route
-    *
-    * @return object
-    *****************************************************************************************/
-    public function setRoute($route)
-    {
-        $this->route = $route;
-        return $this;
-    } 
 
     /*****************************************************************************************
     * Used to set sender id. 
@@ -187,7 +169,7 @@ class Smspby{
      *
      * @return object
      */
-    public function setForcePrefix($prefix="")
+    public function setForcePrefix($prefix = "")
     {    
         $this->prefix = $prefix;
         return $this;
@@ -199,14 +181,10 @@ class Smspby{
      * @param string $mobileno  - (mandatory) Valid mobile number including country code without leading 0 or + symbol
      *                             multiple numbers can be sent separated by comma(,).
      * @param string $text      - (mandatory) SMS content to be sent without encoded.
-     * @param string $schedule  - (optional) Schedule your messages eg : '2020-06-10 12:00:02'.
-     * @param string $reference - (optional) Reference no. for delivered msg report eg : '125546'.
-     * @param string $dlrurl    - (optional) Callback url for delivery notification(url encoded format) eg : http://www.test.com/dlr.php.
-     * @param bool   $shortenurl - (optional) Convert your long url into short url.
      *
      * @return array
      */
-    public function send($mobileno, $text, $schedule = null, $reference = null, $dlrurl = null, $shortenurl = false)
+    public function send($mobileno, $text)
     {
         if (empty($mobileno)) {
             $this->errors[] = 'Mobile number is missing';
@@ -221,22 +199,6 @@ class Smspby{
             'msisdn' => $this->formatNumber($mobileno),
             'text' => $text,
         ];
-        
-        if (!empty($schedule)) {
-            $params['send_on_datetime'] = $schedule; // for Schedule Sms
-        }
-        if (!empty($this->route)) {
-            $params['route'] = $this->route;
-        }
-        if (!empty($dlrurl)) { // for push report
-            $dlrurl = (parse_url($dlrurl, PHP_URL_HOST) == 'localhost') ? urlencode($dlrurl) : $dlrurl;
-            $params['dlrurl'] = $dlrurl;
-            if (!empty($reference)) {
-                $params['reference'] = $reference;
-            } else {
-                $this->errors[] = 'You must use the reference parameter to use DLR callback URL';
-            }
-        }
         $user_auth = $this->getAuthParams();
         if ($this->get_errors()) {
             return $this->get_errors();

@@ -2,6 +2,7 @@
 $_ADDONLANG['lang']               = "english";
 $_ADDONLANG['uptodate']           = "Your addon is up to date.";
 $_ADDONLANG['save']               = "Save Changes";
+$_ADDONLANG['logout']             = "Logout";
 $_ADDONLANG['user']               = "Username";
 $_ADDONLANG['pass']               = "Password";
 $_ADDONLANG['email']              = "Email";
@@ -42,6 +43,5 @@ $_ADDONLANG['credit']             = "SMS Credits";
 $_ADDONLANG['support']            = "Support";
 $_ADDONLANG['logo']               = "<img src=\"https://smsp.by/img/logo.png\" width=\"180px;\" style=\"float:left;margin-right: 75px;\">";
 $_ADDONLANG['supportc2']          = "<a href=\"https://smsp.by/contact\">SMSp.by</a>";
-$_ADDONLANG['supportc3']          = "";
 $_ADDONLANG['settingsReSendTimerInSeconds'] = "OTP Re-send Timer (in seconds)";
 $_ADDONLANG['settingsSmsCountLimit'] = "OTP SMS Count Limit for a single phone number";

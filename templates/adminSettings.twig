@@ -1,27 +1,53 @@
-<form action="" method="post">
-    <input type="hidden" name="action" value="save" />
-    <div class="internalDiv">
-        <table class="form" width="100%" border="0" cellspacing="2" cellpadding="3" style="margin:0px;border: 0px;">
-            <tbody>
-                <tr>
-                    <td class="fieldlabel" width="30%">{{ $LANG['settingsReSendTimerInSeconds'] }}</td>
-                    <td class="fieldarea">
-                        <input type="number" name="resend_timer" class="form-control input-250" id="resend_timer" value="{{ $resend_time }}">
-                    </td>
-                </tr>
-                <tr>
-                    <td class="fieldlabel" width="30%">{{ $LANG['settingsSmsCountLimit'] }}</td>
-                    <td class="fieldarea">
-                        <input type="number" name="sms_count_limit" class="form-control input-250" id="sms_count_limit" value="{{ $sms_count_limit }}">
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2"><hr></td>
-                </tr>
-            </tbody>
-        </table>
-        <p style="text-align:center">
-            <input type="submit" name="submit" class="btn btn-primary save_btn" value="{{ $LANG['save'] }}">
-        </p>
-    </div>
+<script type="text/javascript">
+    $(document).ready(function(){
+        $("#api").change(function(){
+            $("#form").submit();
+        });
+    });
+</script>
+<form action="" method="post" id="smspbyform">
+<div class="internalDiv settings">
+    <table class="form" border="0" cellspacing="2" cellpadding="3" style="margin:0px;border: 0px;">
+        <tbody>
+            <tr>
+                <td class="fieldlabel" width="30%">{{ $LANG['username'] }}</a></td>
+                <td class="fieldarea"><input type="text" name="params[username]" size="40" value="{{ $apiparams['username'] }}" id="inputUsername" class="form-control"></td>
+            </tr>
+            <tr>
+                <td class="fieldlabel" width="30%">{{ $LANG['apikey'] }}</a></td>
+                <td class="fieldarea"><input type="password" name="params[apikey]" size="40" value="{{ $apiparams['apikey'] }}" id="inputPassword" class="form-control"> <span toggle="#inputPassword" class="fa fa-fw fa-eye field-icon toggle-password"></span></td>
+            </tr>						
+            <tr>
+                <td class="fieldlabel" width="30%">{{ $LANG['senderid'] }}</td>
+                <td class="fieldarea"><input type="text" name="params[senderid]" size="40" value="{{ $apiparams['senderid'] }}" id="selectSenderid" class="form-control"></td>
+            </tr>
+            <tr>
+                <input type="hidden"  value="sms" name="api" id="api"/>
+                <td class="fieldlabel" width="30%">{{ $LANG['pattern'] }}</a></td>
+                <td class="fieldarea"><input type="text" name="params[pattern]" size="40" value="{{ $apiparams['pattern'] }}" id="pattern" class="form-control"></td>
+            </tr>
+            <tr>
+                <td class="fieldlabel" width="30%">
+                    <button type="button" id="save_details_smspby" class="save_btn btn btn-sm btn-primary" onclick="saveLoginForm()" />{{ $LANG['save'] }}</button>
+                    <input type="hidden" name="action" value="save" />
+                </td>
 </form>
+                <td class="fieldarea">
+                {% if ($senderid != '') %}
+                    <form action="" method="post" id="form">
+                        <input type="hidden" name="logout" value="save" />
+                        <button class="btn btn-sm btn-danger" type="submit" name="Logout" >{{ $LANG['logout'] }}</button>
+                    </form>
+                {% endif %}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <div class="clientssummarybox">
+        <img src="https://smsp.by/img/logo.svg" style="border-bottom:1px solid gray; width: 150px">
+        <div class="support">
+            <p><b>{{ $LANG['support'] }}</b></p>
+            <p>{{ $LANG['supportc2'] }}</p>
+        </div>
+    </div>
+</div>
