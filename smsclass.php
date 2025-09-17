@@ -187,11 +187,29 @@ class Sms {
             if ($result['status']){
                 return $result['message_status']['name'];
             } else {
-                return "error";
+                return $result['error']['description'] ?? 'Unknown error';
             }
         } else {
             return null;
         }
+    }
+
+    function getReports($phids = array()){
+        $res = array();
+        if (count($phids) > 0) {
+            $smspby = $this->createObject();
+            $result = $smspby->pullReports($phids);
+            if ($result['status']){
+                foreach ($result['messages_status'] as $message) {
+                    $res[$message['message_id']] = $message['name'];
+                }
+            } else {
+                foreach ($phids as $phid) {
+                    $res[$phid] = $result['error']['description'];
+                }
+            }
+        }
+        return $res;
     }
 
     function getHooks(){

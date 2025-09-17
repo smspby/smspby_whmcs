@@ -14,7 +14,7 @@ function smspby_whmcs_config()
     $config = [
 			"name"        => "SMSp.by",
 			"description" => "WHMCS SMS Addon. Больше информации на https://smsp.by/",
-			"version"     => "1.1.5",
+			"version"     => "1.1.6",
 			"author"      => "SMSp.by",
 			"language"    => "russian",
     ];
@@ -207,9 +207,9 @@ function smspby_whmcs_output($vars)
 				$disabled = 'readonly=true';
             }
             $desc       = json_decode($data['description']);
-            if(isset($desc->$LANG['lang'])){
+            if (isset($desc->$LANG['lang'])) {
                 $name   = $desc->$LANG['lang'];
-            }else{
+            } else {
                 $name   = $data['name'];
             }
 			
@@ -219,11 +219,9 @@ function smspby_whmcs_output($vars)
                 <td class="fieldlabel"  style="float:right;"><?php echo $LANG['parameter']; ?></td>
                 <td class="<?php echo ''.$data['id'].'_link' ?>">
 				<?php
-				foreach($tokenarray as $token)
-				{
+				foreach ($tokenarray as $token) {
 					echo '<a href="javascript:void(0)" id="'.$token.'" class="font12 left setalink" data-token="'.$token.'" onclick="insertToken(this)">'.ucfirst(preg_replace("/[{}]/", "", $token)).'</a> | ';
 				}
-				
 				?></td>
             </tr>
            <?php
@@ -234,8 +232,8 @@ function smspby_whmcs_output($vars)
                         <textarea name="' . $data['id'] . '_template" class="form-control" '.$disabled.' id="'.$data['id'].'_check">' . $data['template'] . '</textarea>
                     </td>
                 </tr>';
-        
-            if(!empty($data['extra'])){
+
+            if (!empty($data['extra'])) {
                 echo '
                 <tr>
                     <td class="fieldlabel" width="30%">'.$LANG['ekstra'].'</td>
@@ -245,7 +243,7 @@ function smspby_whmcs_output($vars)
                 </tr>
                 ';
             }
-            if($_GET['type'] == "admin"){
+            if ($_GET['type'] == "admin") {
                 echo '
                 <tr>
                     <td class="fieldlabel" width="30%">'.$LANG['admingsm'].'</td>
@@ -294,12 +292,26 @@ function smspby_whmcs_output($vars)
         $sayfa = ceil($toplam / $limit);
 
         $messages = [];
+        $phids = [];
         while ($data = mysql_fetch_array($messagesRes)) {
             if ($data['phid']) {
-                $data['status'] = $class->getReport($data['phid']);
-                mysql_query("UPDATE mod_Smspby_messages SET status = '{$data['status']}' WHERE id = {$data['id']}");
+                $phids[$data['phid']] = '';
             }
-            $messages[] = $data;
+            $messages[] = $data; // Collect all messages
+        }
+        if (!empty($phids)) {
+            $reports = $class->getReports(array_keys($phids));
+            foreach ($reports as $phid => $status) {
+                $phids[$phid] = $status;
+                mysql_query("UPDATE mod_Smspby_messages SET status = '{$status}' WHERE phid = '{$phid}'");
+            }
+            // Update statuses in $messages array
+            foreach ($messages as &$msg) {
+                if (!empty($msg['phid']) && isset($phids[$msg['phid']])) {
+                    $msg['status'] = $phids[$msg['phid']];
+                }
+            }
+            unset($msg);
         }
 
         $listPages = "";
@@ -435,7 +447,7 @@ function smspby_whmcs_output($vars)
     }
 
     $credit =  $class->getBalance();
-    if(!$credit){
+    if (!$credit) {
         $credit = 'error';
     }
     $templ = new TemplateEngine($smspbyTemplatesPath);

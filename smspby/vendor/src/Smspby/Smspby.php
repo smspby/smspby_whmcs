@@ -248,4 +248,40 @@ class Smspby{
         $body = json_decode($response->getBody(), true);
         return $body;
     }
+
+    /**
+     * Used to pull multiple sms reports.
+     *
+     * @param array $phids - (mandatory) Array of message ids received in response to every push request.
+     *
+     * @return array
+     * Example of ok JSON response:
+     * {
+     *   "status": true,
+     *   "messages_status": {
+     *     "message_id": 0,
+     *     "code": 0, // Числовой код статуса
+     *     "name": "string" // Наименование статуса
+     *   }
+     * }
+     * Example of error JSON response:
+     * {
+     *   "status": false,
+     *   "error": {
+     *     "code": 4,
+     *     "description": "Invalid user or apikey"
+     *   }
+     * }
+     */
+    public function pullReports($phids)
+    {
+        $user_auth = $this->getAuthParams();
+        if ($this->get_errors()) {
+            return $this->get_errors();
+        }
+        $url = $this->url . '/statusBulk/sms?user=' . $user_auth['user'] . '&apikey=' . $user_auth['apikey'] . '&message_ids=' . implode(',', $phids);
+        $client = new Client();
+        $response = $client->request('POST', $url, ['http_errors' => false]);
+        return json_decode($response->getBody(), true);
+    }
 }
