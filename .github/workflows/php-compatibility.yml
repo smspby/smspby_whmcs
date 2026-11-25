@@ -1,0 +1,31 @@
+name: PHP compatibility
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.1', '8.2', '8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and extract the distributable ZIP
+        run: |
+          ./zip.sh
+          mkdir package
+          unzip -q smspby_whmcs.zip -d package
+          test ! -e package/specs
+          test ! -e package/tests
+          test ! -e package/.github
+      - name: Lint and load module on PHP ${{ matrix.php }}
+        run: |
+          docker run --rm --network none -v "$PWD:/module:ro" -w /module \
+            php:${{ matrix.php }}-cli sh -ec '
+              find package -type f -name "*.php" -print0 | xargs -0 -n 1 php -l
+              php tests/smoke.php package
+            '

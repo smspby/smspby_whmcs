@@ -9,8 +9,8 @@ class Client
 
 	public function request($method = "GET", $url = null, $params = array(), $headers = array(), $curl_opts = array())
 	{
-		$params = (!empty($params['json'])) ? $params['json'] : $params['query'];
-		$http_errors = (!empty($params['http_errors'])) ? $params['http_errors'] : false;
+		$http_errors = $params['http_errors'] ?? false;
+		$params = $params['json'] ?? $params['query'] ?? [];
 
 		if (strtolower($method) != 'post') {
 			$query = (!empty($params)) ? '?' . http_build_query($params) : '';
@@ -41,8 +41,6 @@ class Client
 		if ($http_errors && curl_errno($ch)) {
 			$this->response = curl_error($ch);
 		}
-
-		curl_close($ch);
 
 		return new Responses($this->response);
 	}

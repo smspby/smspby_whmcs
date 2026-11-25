@@ -1,5 +1,5 @@
 <?php
-include("smspby/vendor/autoload.php");
+require_once __DIR__ . '/smspby/vendor/autoload.php';
 class Sms {
     public $params;
     public $gsmnumber;
@@ -39,8 +39,8 @@ class Sms {
 	
     public function getParams(){
         $settings = $this->getSettings();
-        $params = json_decode($settings['apiparams'], true);
-		return $params;
+        $params = json_decode($settings['apiparams'] ?? '', true);
+		return is_array($params) ? $params : [];
     }
 
     /**
@@ -49,9 +49,9 @@ class Sms {
     public function createObject()
     {
         $params = $this->getParams();
-        $username = $params['username'];
-        $apikey = $params['apikey'];
-        $senderId = $params['senderid'];
+        $username = $params['username'] ?? '';
+        $apikey = $params['apikey'] ?? '';
+        $senderId = $params['senderid'] ?? '';
 
         $smspby = new SMSpby\Lib\Smspby\Smspby();
         $smspby->setOptions(array('plugin' => 'whmcs', 'website' => !empty($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : ''))
@@ -83,12 +83,13 @@ class Sms {
 		$smspby     = $this->createObject();
 		$smspRes     = $smspby->send($to, $text);
 		$message_id = '';
-		if ($smspRes['status']) {
+		if (!empty($smspRes['status'])) {
             $log       = "Message sent!";
 			$message_id  = $smspRes['message_id'];
 		} else {
-			$err_mesg  = is_array($smspRes['error']) ? $smspRes['error']['description'] : $smspRes['error'];
-            $err_code  = is_array($smspRes['error']) ? $smspRes['error']['code'] : -100;
+			$apiError = $smspRes['error'] ?? 'No valid response from SMSp.by';
+			$err_mesg = is_array($apiError) ? ($apiError['description'] ?? 'Unknown error') : $apiError;
+            $err_code = $apiError['code'] ?? -100;
 			$log     = "Error code by SMSp.by: {$err_code} Error: {$err_mesg}";
 			$error   = "Error: $err_mesg";
 		}
@@ -157,7 +158,7 @@ class Sms {
 	function verifyotp($userOTP) {
         $otp_res = select_query("mod_Smspby_otp", "*", ['user_id' => $this->getUserid(), 'phone' => $this->getGsmnumber()]);
         $data = mysql_fetch_array($otp_res);
-        if ($data['otp'] == $userOTP) {
+        if ($data && (string) $data['otp'] === (string) $userOTP) {
             update_query('mod_Smspby_otp', ['verify' => 1, 'verify_at' => date("Y-m-d H:i:s")], ['user_id' => $this->getUserid(), 'phone' => $this->getGsmnumber()]);
             return true;
         }
@@ -166,14 +167,14 @@ class Sms {
 
     // cleanPhone function is used to clean the phone number. Phone can content only numbers and + sign
     function cleanPhone($phone){
-        $phone = preg_replace('/[^0-9+]/', '', $phone);
+        $phone = preg_replace('/[^0-9+]/', '', (string) $phone);
         return $phone;
     }
 
     function getBalance(){
 		$smspby = $this->createObject();
 		$result   = $smspby->balanceCheck();
-		if ($result['status']) {
+		if (!empty($result['status'])) {
 			return $result['sms'];
 		} else {
 			return null;
@@ -184,7 +185,7 @@ class Sms {
         if ($messageID) {
             $smspby = $this->createObject();
             $result = $smspby->pullReport($messageID);
-            if ($result['status']){
+            if (!empty($result['status'])){
                 return $result['message_status']['name'];
             } else {
                 return $result['error']['description'] ?? 'Unknown error';
@@ -199,13 +200,14 @@ class Sms {
         if (count($phids) > 0) {
             $smspby = $this->createObject();
             $result = $smspby->pullReports($phids);
-            if ($result['status']){
+            if (!empty($result['status'])){
                 foreach ($result['messages_status'] as $message) {
                     $res[$message['message_id']] = $message['name'];
                 }
             } else {
                 foreach ($phids as $phid) {
-                    $res[$phid] = $result['error']['description'];
+                    $error = $result['error'] ?? 'No valid response from SMSp.by';
+                    $res[$phid] = is_array($error) ? ($error['description'] ?? 'Unknown error') : $error;
                 }
             }
         }
@@ -213,22 +215,22 @@ class Sms {
     }
 
     function getHooks(){
-        if ($handle = opendir(dirname(__FILE__).'/hooks')) {
-            while (false !== ($entry = readdir($handle))) {
-                if(substr($entry,strlen($entry)-4,strlen($entry)) == ".php"){
-                    $file[] = require_once('hooks/'.$entry);
+        static $hooks = [];
+        if (!$hooks) {
+            foreach (glob(__DIR__ . '/hooks/*.php') as $file) {
+                if (basename($file) !== 'otpActionHook.php') {
+                    $hooks[] = require $file;
                 }
             }
-            closedir($handle);
         }
-        return $file;
+        return $hooks;
     }
 
     function saveToDb($phid, $status, $errors = null, $logs = null){
 		$params = $this->getParams();
         $table  = "mod_Smspby_messages";
         $values = array(
-            "sender"   => $params['senderid'],
+            "sender"   => $params['senderid'] ?? '',
             "to"       => $this->getGsmnumber(),
             "text"     => $this->getMessage(),
             "phid"     => $phid,
@@ -275,14 +277,15 @@ class Sms {
 
         $i=0;
         foreach($hooks as $hook){
-            $sql = "SELECT `id` FROM `mod_Smspby_templates` WHERE `name` = '".$hook['function']."' AND `type` = '".$hook['type']."' LIMIT 1";
-            $result   = mysql_query($sql);
+            $where = ['name' => $hook['function'], 'type' => $hook['type']];
+            $result = select_query('mod_Smspby_templates', 'id', $where);
             $num_rows = mysql_num_rows($result);
             if($num_rows == 0){
                 if($hook['type']){
                     $values = array(
                         "name"        => $hook['function'],
                         "type"        => $hook['type'],
+                        "admingsm"    => '',
                         "template"    => $hook['defaultmessage'],
                         "variables"   => $hook['variables'],
                         "extra"       => $hook['extra'],
@@ -296,7 +299,7 @@ class Sms {
                 $values = array(
                     "variables" => $hook['variables']
                 );
-                update_query("mod_Smspby_templates", $values, "name = '" . $hook['name']."'");
+                update_query('mod_Smspby_templates', $values, $where);
             }
         }
         return $i;
