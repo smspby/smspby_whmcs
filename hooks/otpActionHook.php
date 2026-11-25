@@ -2,13 +2,13 @@
 $class    = new Sms();
 $template = $class->getTemplateDetails('ClientAreaRegister_clientarea');
 
-if ($template['active'] == 0) {
+if (empty($template['active'])) {
 	return null;
 }
 	
 if (isset($_POST['action'])) {
 	$action = $_POST['action'];
-	$userID = $_POST['user_id'];
+	$userID = $_POST['user_id'] ?? null;
 	$class->setUserid($userID);
 	switch ($action) {
 		case 'resendOtp':

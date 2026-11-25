@@ -1,6 +1,6 @@
 <?php
-require_once("smsclass.php");
-require_once("templater.php");
+require_once __DIR__ . '/smsclass.php';
+require_once __DIR__ . '/templater.php';
 use SMSpby\Lib\Smspby\Smspby;
 
 $smspby = new Smspby();
@@ -14,7 +14,7 @@ function smspby_whmcs_config()
     $config = [
 			"name"        => "SMSp.by",
 			"description" => "WHMCS SMS Addon. Больше информации на https://smsp.by/",
-			"version"     => "1.1.6",
+			"version"     => "1.1.7",
 			"author"      => "SMSp.by",
 			"language"    => "russian",
     ];
@@ -120,14 +120,15 @@ function smspby_whmcs_upgrade($vars)
 
 function smspby_whmcs_output($vars)
 {
-    $smspbyTemplatesPath = $_SERVER['DOCUMENT_ROOT'] . '/modules/addons/smspby_whmcs/templates/';
+    $smspbyTemplatesPath = __DIR__ . '/templates/';
     $config = smspby_whmcs_config();
 	$LANG       = $vars['_lang'];
     putenv("TZ=Europe/Minsk");
     
     $class = new Sms();
-	$tab   = $_GET['tab'];
-    $type = $_GET['type'];
+	$tab   = $_GET['tab'] ?? 'settings';
+    $type = $_GET['type'] ?? '';
+    $sms_count_limit = 0;
     $templ = new TemplateEngine($smspbyTemplatesPath);
     $templ->assign('LANG', $LANG);
     $templ->assign('type', $type);
@@ -136,7 +137,7 @@ function smspby_whmcs_output($vars)
 
     if (!isset($tab) || $tab == "settings") {
         /* UPDATE SETTINGS */
-        if ($_POST['params']) {
+        if (!empty($_POST['params'])) {
 			$update = [
                 'api'            => $_POST['api'],
                 'apiparams'      => htmlspecialchars_decode(json_encode($_POST['params'])),
@@ -148,7 +149,7 @@ function smspby_whmcs_output($vars)
         }
         /* UPDATE SETTINGS */
 
-		if ($_POST['logout']) {
+		if (!empty($_POST['logout'])) {
             $query = "TRUNCATE TABLE `mod_Smspby_settings`";
 	        mysql_query($query);
             $query = "INSERT INTO `mod_Smspby_settings` (`api`, `apiparams`, `wantsmsfield`, `gsmnumberfield`, `resend_time`, `sms_count_limit`, `dateformat`, `version`) VALUES ('sms', '{\"senderid\":\"\",\"signature\":\"\",\"country_code\":\"\"}', 0, 0, 15, 0, '%d.%m.%y', '{$config['version']}')";
@@ -156,21 +157,21 @@ function smspby_whmcs_output($vars)
         }
 
         $apiparams = $class->getParams();
-        if ($apiparams['pattern'] == '') {
+        if (empty($apiparams['pattern'])) {
             $apiparams['pattern'] = '+375';
         }
         
         $templ = new TemplateEngine($smspbyTemplatesPath);
         $templ->assign('LANG', $LANG);
         $templ->assign('apiparams', $apiparams);
-        $templ->assign('senderid', $apiparams['senderid']);
+        $templ->assign('senderid', $apiparams['senderid'] ?? '');
         echo $templ->render('adminSettings.twig');
     } elseif ($tab == "templates") {
-        if ($_POST['submit']) {
-            $where = array("type" => array("sqltype" => "LIKE", "value" => $_GET['type']));
+        if (!empty($_POST['submit'])) {
+            $where = array("type" => array("sqltype" => "LIKE", "value" => $type));
             $result = select_query("mod_Smspby_templates", "*", $where);
             while ($data = mysql_fetch_array($result)) {
-                if ($_POST[$data['id'] . '_active'] == "on") {
+                if (($_POST[$data['id'] . '_active'] ?? '') === 'on') {
                     $tmp_active = 1;
                 } else {
                     $tmp_active = 0;
@@ -195,7 +196,7 @@ function smspby_whmcs_output($vars)
             <div class="internalDiv">
                 <table class="form" width="100%" border="0" cellspacing="2" cellpadding="3" style="margin:0px;border: 0px;">
                     <tbody>';
-        $where = array("type" => array("sqltype" => "LIKE", "value" => $_GET['type']));
+        $where = array("type" => array("sqltype" => "LIKE", "value" => $type));
         $result = select_query("mod_Smspby_templates", "*", $where);
 
         while ($data = mysql_fetch_array($result)) {
@@ -243,7 +244,7 @@ function smspby_whmcs_output($vars)
                 </tr>
                 ';
             }
-            if ($_GET['type'] == "admin") {
+            if ($type === 'admin') {
                 echo '
                 <tr>
                     <td class="fieldlabel" width="30%">'.$LANG['admingsm'].'</td>
@@ -272,9 +273,10 @@ function smspby_whmcs_output($vars)
 
         // Pagination values
         $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-        $limit = (isset($_GET['limit']) && $_GET['limit'] <= 50) ? (int)$_GET['limit'] : 10;
+        $limit = (int) ($_GET['limit'] ?? 10);
+        $limit = ($limit >= 1 && $limit <= 50) ? $limit : 10;
         $start = ($page > 1) ? ($page * $limit) - $limit : 0;
-        $order = isset($_GET['order']) ? $_GET['order'] : 'DESC';
+        $order = strtoupper((string) ($_GET['order'] ?? 'DESC')) === 'ASC' ? 'ASC' : 'DESC';
 
         // Get messages ordered by date
         $sql = "SELECT `m`.*, `user`.`firstname`, `user`.`lastname`
@@ -428,7 +430,7 @@ function smspby_whmcs_output($vars)
 
 
     } elseif ($tab == "advanced_settings") {
-        if ($_POST['submit']) {
+        if (!empty($_POST['submit'])) {
             $update = array(
                 'resend_time' => $_POST['resend_timer'],
                 'sms_count_limit' => $_POST['sms_count_limit']

@@ -94,7 +94,7 @@ class Smspby{
     {
 		$default_options = [
             "plugin" => 'php-lib',
-            "website" => $_SERVER['HTTP_HOST']
+            "website" => $_SERVER['HTTP_HOST'] ?? ''
         ];
 		$this->options = array_merge($default_options, $this->options);
 		return $this->options;
@@ -108,7 +108,7 @@ class Smspby{
     *****************************************************************************************/
     private function getAuthParams()
     {
-		if(array_search("", $this->authParams) !== false)
+		if (($this->authParams['user'] ?? '') === '' || ($this->authParams['apikey'] ?? '') === '')
         {
 			$this->errors[] = "Missing parameters: Username & Apikey";
 			return false;
@@ -126,7 +126,7 @@ class Smspby{
 	{
 		if(!empty($this->errors))
 		{
-			return ['status' => 'error', 'description' => $this->errors];
+			return ['status' => false, 'error' => implode('; ', $this->errors)];
 		} else {
 			return false;
 		}
@@ -196,7 +196,7 @@ class Smspby{
         $url = $this->url . '/send/sms';
         $params = [
             'sender' => $this->sender,
-            'msisdn' => $this->formatNumber($mobileno),
+            'msisdn' => $this->formatNumber((string) $mobileno),
             'text' => $text,
         ];
         $user_auth = $this->getAuthParams();
@@ -239,10 +239,10 @@ class Smspby{
     public function pullReport($messageID)
     {
         $user_auth = $this->getAuthParams();
-        $url = $this->url . '/status/sms?user=' . $user_auth['user'] . '&apikey=' . $user_auth['apikey'] . '&message_id=' . $messageID;
         if ($this->get_errors()) {
             return $this->get_errors();
         }
+        $url = $this->url . '/status/sms?user=' . $user_auth['user'] . '&apikey=' . $user_auth['apikey'] . '&message_id=' . $messageID;
         $client = new Client();
         $response = $client->request('GET', $url, ['http_errors' => false]);
         $body = json_decode($response->getBody(), true);

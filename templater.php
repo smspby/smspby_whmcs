@@ -20,7 +20,7 @@ class TemplateEngine {
             if (is_array($value)) {
                 $output = $this->replaceArrayVariable($output, $key, $value);
             } else {
-                $output = str_replace('{{ $' . $key . ' }}', $value, $output);
+                $output = str_replace('{{ $' . $key . ' }}', (string) $value, $output);
             }
         }
     
@@ -85,7 +85,7 @@ class TemplateEngine {
                 return $this->replaceArrayVariable($output, $key, $subValue);
             } else {
                 // Если значение вложенного массива - не массив, заменяем в шаблоне
-                $output = str_replace('{{ $' . $key . '[\'' . $subKey . '\'] }}', $subValue, $output);
+                $output = str_replace('{{ $' . $key . '[\'' . $subKey . '\'] }}', (string) $subValue, $output);
             }
         }
         return $output;

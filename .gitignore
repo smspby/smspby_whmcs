@@ -1,1 +1,4 @@
 .DS_Store
+/smspby_whmcs.zip
+/.zip.*/
+/specs/
