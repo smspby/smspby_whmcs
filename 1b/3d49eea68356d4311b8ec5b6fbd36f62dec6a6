@@ -1,0 +1,37 @@
+.gitignore
+  s_c31cd303516973::t_51b40dd376b04f 2-4
+hooks.php
+  s_c31cd303516973::t_347b10a95afc59 5,11-13
+hooks/otpActionHook.php
+  s_c31cd303516973::t_3abcfc737b2cfb 5,11
+smsclass.php
+  s_c31cd303516973::t_25d76f135af5b8 2,42-43,52-54,86,90-92,161,170,177,188,203,209-210,218-222,226,233,280-281,288,302
+smspby/vendor/src/Curl/Client.php
+  s_c31cd303516973::t_3dde34e97bd26d 12-13
+smspby/vendor/src/Smspby/Smspby.php
+  s_c31cd303516973::t_b64c0262b5ed89 97,111,129,199,245
+templater.php
+  s_c31cd303516973::t_e69edb459adb8d 23,88
+tests/smoke.php
+  s_c31cd303516973::t_a40a002c7f4963 1-82
+zip.sh
+  s_c31cd303516973::t_b3f56cf79f96e6 1-13
+.github/workflows/php-compatibility.yml
+  s_c31cd303516973::t_9081947872708a 1-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1b3d49eea68356d4311b8ec5b6fbd36f62dec6a6",
+  "prompts": {},
+  "sessions": {
+    "s_c31cd303516973": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a211e0-fc13-7441-80c8-ec39ad158afc",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "Slava Shahoika <vistova@gmail.com>"
+    }
+  }
+}
